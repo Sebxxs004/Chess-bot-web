@@ -216,6 +216,13 @@
             font-size: 1.05rem;
         }
 
+        .history-top {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+        }
+
         #move-history {
             border: 1px solid var(--border);
             border-radius: 8px;
@@ -356,6 +363,18 @@
             cursor: pointer;
         }
 
+        .primary-btn {
+            border: 1px solid #1d4ed8;
+            background: linear-gradient(120deg, #2563eb 0%, #1d4ed8 100%);
+            color: #ffffff;
+            border-radius: 8px;
+            height: 34px;
+            padding: 0 12px;
+            font-weight: 700;
+            cursor: pointer;
+            box-shadow: 0 8px 14px rgba(37, 99, 235, 0.28);
+        }
+
         #game-result-banner {
             position: absolute;
             left: 16px;
@@ -433,7 +452,10 @@
             </div>
         </div>
         <div class="history-wrap">
-            <h2 class="history-header">Historial de Jugadas</h2>
+            <div class="history-top">
+                <h2 class="history-header">Historial de Jugadas</h2>
+                <button id="btn-new-game" class="primary-btn" title="Reiniciar partida">Nueva Partida</button>
+            </div>
             <div id="move-history">Sin jugadas todavia.</div>
             <div class="nav-controls">
                 <button id="btn-start" class="nav-btn" title="Inicio">&lt;&lt;</button>
@@ -465,6 +487,7 @@
     const btnNext = document.getElementById("btn-next");
     const btnLatest = document.getElementById("btn-latest");
     const btnWhyError = document.getElementById("btn-why-error");
+    const btnNewGame = document.getElementById("btn-new-game");
     const coachNoteEl = document.getElementById("coach-note");
     const logEl = document.getElementById("log");
     let game;
@@ -724,6 +747,41 @@
         setEngineThinking(false);
         updateTurnIndicator();
         return true;
+    }
+
+    function resetFrontendState() {
+        if (!game || !board) {
+            return;
+        }
+
+        stopEngineSearch();
+        game.reset();
+        board.start();
+
+        timeline = [];
+        currentPly = 0;
+        currentPgn = "";
+        selectedHistoryPly = null;
+        pendingHumanReview = null;
+        lastWhiteEvalCp = 0;
+
+        gameResultBannerEl.classList.remove("visible");
+        gameResultBannerEl.textContent = "";
+        coachNoteEl.textContent = "Selecciona una jugada marcada para ver su linea de castigo.";
+        pvTextEl.textContent = "--";
+        evalEl.textContent = "0.00 peones";
+        evalEl.style.color = "var(--good)";
+        setEvalFloatingLabel("+0.0");
+        setEvalBarPercent(50);
+        clearPunishHighlights();
+        updateHistoryPanel();
+        setEngineThinking(false);
+        updateTurnIndicator();
+    }
+
+    function newGame() {
+        resetFrontendState();
+        sendCommand("ucinewgame");
     }
 
     function onDragStart(source, piece) {
@@ -1000,6 +1058,7 @@
     btnNext.addEventListener("click", () => navigateToPly(currentPly + 1));
     btnLatest.addEventListener("click", () => navigateToPly(timeline.length));
     btnWhyError.addEventListener("click", showPunishmentLine);
+    btnNewGame.addEventListener("click", newGame);
 
     moveHistoryEl.addEventListener("click", event => {
         const target = event.target.closest(".move-san");
