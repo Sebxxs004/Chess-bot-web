@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Chess Tutor - Tablero Vivo</title>
-    <link rel="icon" href="data:,">
+    <link rel="icon" type="image/jpeg" href="/assets/escudo-udes.jpg">
     <link rel="stylesheet" href="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chess.js@0.10.3/chess.min.js"></script>
@@ -52,9 +52,35 @@
             position: relative;
             box-sizing: border-box;
             display: grid;
-            grid-template-rows: auto auto auto minmax(0, 1fr);
+            grid-template-rows: auto auto auto minmax(0, 1fr) auto;
             gap: 10px;
             overflow: hidden;
+        }
+
+        .app-footer {
+            border-top: 1px solid var(--border);
+            padding-top: 8px;
+            font-size: 0.78rem;
+            color: var(--muted);
+            text-align: center;
+            letter-spacing: 0.2px;
+        }
+
+        .app-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .university-logo {
+            width: 56px;
+            height: 56px;
+            object-fit: contain;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            background: #ffffff;
+            padding: 4px;
+            box-sizing: border-box;
         }
 
         h1 {
@@ -836,8 +862,13 @@
 <body>
 <div class="panel">
     <div id="game-result-banner"></div>
-    <h1>Chess Tutor - Fase 4.2</h1>
-    <p class="subtitle">Mueve una pieza blanca. El bot (negras) respondera y el score se actualiza durante la busqueda.</p>
+    <div class="app-header">
+        <img class="university-logo" src="/assets/escudo-udes.jpg" alt="Escudo Universidad de Santander">
+        <div>
+            <h1>Chess Tutor - Fase 4.2</h1>
+            <p class="subtitle">Mueve una pieza blanca. El bot (negras) respondera y el score se actualiza durante la busqueda.</p>
+        </div>
+    </div>
     <div class="mode-switch" aria-label="Selector de modo">
         <button id="btn-mode-standard" class="mode-btn active" title="Jugar sin ayuda">Modo normal</button>
         <button id="btn-mode-coach" class="mode-btn" title="Entrenar con tutor">Modo ayuda</button>
@@ -905,6 +936,11 @@
             <div id="help-panel" class="hidden"></div>
             <div id="log"></div>
         </div>
+    </div>
+
+    <div class="app-footer">
+        Copyright © 2026 | Developed by JUAN SEBASTIAN CANO VASQUEZ
+        | University of Santander - 02230131036
     </div>
 </div>
 

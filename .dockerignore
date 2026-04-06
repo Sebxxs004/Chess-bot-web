@@ -1,0 +1,7 @@
+target/
+out/
+.git/
+.github/
+.vscode/
+.tools/
+*.log
