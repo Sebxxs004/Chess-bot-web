@@ -219,10 +219,69 @@
             padding: 1px 5px;
         }
 
+        .move-cell {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            min-height: 22px;
+        }
+
+        .quality-tag {
+            font-size: 0.72rem;
+            border-radius: 999px;
+            padding: 1px 6px;
+            border: 1px solid transparent;
+            white-space: nowrap;
+        }
+
         .move-san.current {
             background: #e2f0eb;
             color: #0f4b3f;
             font-weight: 700;
+        }
+
+        .move-san.q-excellent {
+            background: #dff5d8;
+            color: #145739;
+        }
+
+        .move-san.q-inaccuracy {
+            background: #fff3bf;
+            color: #735a00;
+        }
+
+        .move-san.q-mistake {
+            background: #ffd9ad;
+            color: #7d3c00;
+        }
+
+        .move-san.q-blunder {
+            background: #ffd0d0;
+            color: #7a1111;
+        }
+
+        .quality-tag.q-excellent {
+            background: #dff5d8;
+            border-color: #8fc18f;
+            color: #145739;
+        }
+
+        .quality-tag.q-inaccuracy {
+            background: #fff3bf;
+            border-color: #d6b84f;
+            color: #735a00;
+        }
+
+        .quality-tag.q-mistake {
+            background: #ffd9ad;
+            border-color: #d09352;
+            color: #7d3c00;
+        }
+
+        .quality-tag.q-blunder {
+            background: #ffd0d0;
+            border-color: #cf7777;
+            color: #7a1111;
         }
 
         .nav-controls {
@@ -318,6 +377,8 @@
     let timeline = [];
     let currentPly = 0;
     let currentPgn = "";
+    let lastWhiteEvalCp = 0;
+    let pendingHumanReview = null;
 
     const protocol = window.location.protocol === "https:" ? "wss" : "ws";
     const socket = new WebSocket(`${protocol}://${window.location.host}/chess`);
@@ -400,11 +461,25 @@
             const black = match[3] || "";
             const whiteCurrent = currentPly > 0 && moveNumber === currentMoveNumber && currentIsWhite ? "current" : "";
             const blackCurrent = currentPly > 0 && moveNumber === currentMoveNumber && !currentIsWhite ? "current" : "";
+            const whiteIndex = (moveNumber - 1) * 2;
+            const blackIndex = whiteIndex + 1;
+            const whiteMeta = timeline[whiteIndex] || null;
+            const blackMeta = timeline[blackIndex] || null;
+
+            const whiteQualityClass = whiteMeta && whiteMeta.qualityClass ? whiteMeta.qualityClass : "";
+            const blackQualityClass = blackMeta && blackMeta.qualityClass ? blackMeta.qualityClass : "";
+            const whiteQualityTag = whiteMeta && whiteMeta.qualityLabel
+                ? `<span class="quality-tag ${whiteMeta.qualityClass}">${whiteMeta.qualityLabel}</span>`
+                : "";
+            const blackQualityTag = blackMeta && blackMeta.qualityLabel
+                ? `<span class="quality-tag ${blackMeta.qualityClass}">${blackMeta.qualityLabel}</span>`
+                : "";
+
             rows.push(
                 `<div class="history-row">` +
                 `<span class="move-num">${moveNumber}.</span>` +
-                `<span class="move-san ${whiteCurrent}">${white}</span>` +
-                `<span class="move-san ${blackCurrent}">${black}</span>` +
+                `<span class="move-cell"><span class="move-san ${whiteCurrent} ${whiteQualityClass}">${white}</span>${whiteQualityTag}</span>` +
+                `<span class="move-cell"><span class="move-san ${blackCurrent} ${blackQualityClass}">${black}</span>${blackQualityTag}</span>` +
                 `</div>`
             );
         }
@@ -425,7 +500,9 @@
         timeline.push({
             san: move.san,
             uci: toUci(move),
-            fen: game.fen()
+            fen: game.fen(),
+            qualityClass: "",
+            qualityLabel: ""
         });
         currentPly = timeline.length;
         currentPgn = game.pgn();
@@ -437,6 +514,7 @@
             sendCommand("stop");
         }
         setEngineThinking(false);
+        pendingHumanReview = null;
     }
 
     function navigateToPly(targetPly) {
@@ -494,12 +572,17 @@
     }
 
     function onDrop(source, target) {
+        const preEvalCp = lastWhiteEvalCp;
         const move = game.move({ from: source, to: target, promotion: "q" });
         if (move === null) {
             return "snapback";
         }
 
         registerMove(move);
+        pendingHumanReview = {
+            plyIndex: currentPly - 1,
+            preEvalCp
+        };
         updateBoard();
         setEngineThinking(true);
         evalEl.textContent = "Pensando...";
@@ -532,14 +615,70 @@
         if (cpMatch) {
             const cp = Number(cpMatch[1]);
             updateEvalFromCp(cp);
-            return;
+            return {
+                type: "cp",
+                sideToMoveCp: cp
+            };
         }
 
         const mateMatch = message.match(/score\s+mate\s+(-?\d+)/);
         if (mateMatch) {
             const mate = Number(mateMatch[1]);
             updateEvalFromMate(mate);
+            return {
+                type: "mate",
+                sideToMoveMate: mate
+            };
         }
+
+        return null;
+    }
+
+    function scoreToWhiteCp(scoreData) {
+        if (!scoreData || !game) {
+            return lastWhiteEvalCp;
+        }
+        const turn = game.turn();
+        if (scoreData.type === "cp") {
+            return turn === "w" ? scoreData.sideToMoveCp : -scoreData.sideToMoveCp;
+        }
+        const mateMagnitude = 10_000;
+        const sideToMoveMate = scoreData.sideToMoveMate;
+        const sideToMoveCp = sideToMoveMate > 0 ? mateMagnitude : -mateMagnitude;
+        return turn === "w" ? sideToMoveCp : -sideToMoveCp;
+    }
+
+    function classifyMoveQuality(dropCp) {
+        if (dropCp < 20) {
+            return { qualityClass: "q-excellent", qualityLabel: "! Excelente" };
+        }
+        if (dropCp >= 50 && dropCp < 100) {
+            return { qualityClass: "q-inaccuracy", qualityLabel: "?! Inexactitud" };
+        }
+        if (dropCp >= 100 && dropCp < 250) {
+            return { qualityClass: "q-mistake", qualityLabel: "? Error" };
+        }
+        if (dropCp >= 250) {
+            return { qualityClass: "q-blunder", qualityLabel: "?? Blunder" };
+        }
+        return { qualityClass: "", qualityLabel: "" };
+    }
+
+    function applyPedagogicReview(postWhiteEvalCp) {
+        if (!pendingHumanReview) {
+            return;
+        }
+        const index = pendingHumanReview.plyIndex;
+        if (index < 0 || index >= timeline.length) {
+            pendingHumanReview = null;
+            return;
+        }
+        const dropCp = pendingHumanReview.preEvalCp - postWhiteEvalCp;
+        const verdict = classifyMoveQuality(dropCp);
+        timeline[index].qualityClass = verdict.qualityClass;
+        timeline[index].qualityLabel = verdict.qualityLabel;
+        updateHistoryPanel();
+        pendingHumanReview = null;
     }
 
     function renderPvFromInfo(message) {
@@ -588,7 +727,10 @@
             if (!isEngineThinking) {
                 return;
             }
-            renderScoreFromInfo(message);
+            const scoreData = renderScoreFromInfo(message);
+            const whiteEvalCp = scoreToWhiteCp(scoreData);
+            lastWhiteEvalCp = whiteEvalCp;
+            applyPedagogicReview(whiteEvalCp);
             renderPvFromInfo(message);
             return;
         }
