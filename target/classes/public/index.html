@@ -4,10 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Chess Tutor - Tablero Vivo</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/chessboard.js/1.0.0/chessboard-1.0.0.min.css">
+    <link rel="icon" href="data:,">
+    <link rel="stylesheet" href="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.13.4/chess.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/chessboard.js/1.0.0/chessboard-1.0.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chess.js@0.10.3/chess.min.js"></script>
+    <script src="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.js"></script>
     <style>
         :root {
             --bg: #f3efe5;
@@ -311,7 +312,7 @@
     const btnNext = document.getElementById("btn-next");
     const btnLatest = document.getElementById("btn-latest");
     const logEl = document.getElementById("log");
-    const game = new Chess();
+    let game;
     let board;
     let isEngineThinking = false;
     let timeline = [];
@@ -320,6 +321,20 @@
 
     const protocol = window.location.protocol === "https:" ? "wss" : "ws";
     const socket = new WebSocket(`${protocol}://${window.location.host}/chess`);
+    const PIECE_ICON_MAP = {
+        wP: "https://upload.wikimedia.org/wikipedia/commons/4/45/Chess_plt45.svg",
+        wR: "https://upload.wikimedia.org/wikipedia/commons/7/72/Chess_rlt45.svg",
+        wN: "https://upload.wikimedia.org/wikipedia/commons/7/70/Chess_nlt45.svg",
+        wB: "https://upload.wikimedia.org/wikipedia/commons/b/b1/Chess_blt45.svg",
+        wQ: "https://upload.wikimedia.org/wikipedia/commons/1/15/Chess_qlt45.svg",
+        wK: "https://upload.wikimedia.org/wikipedia/commons/4/42/Chess_klt45.svg",
+        bP: "https://upload.wikimedia.org/wikipedia/commons/c/c7/Chess_pdt45.svg",
+        bR: "https://upload.wikimedia.org/wikipedia/commons/f/ff/Chess_rdt45.svg",
+        bN: "https://upload.wikimedia.org/wikipedia/commons/e/ef/Chess_ndt45.svg",
+        bB: "https://upload.wikimedia.org/wikipedia/commons/9/98/Chess_bdt45.svg",
+        bQ: "https://upload.wikimedia.org/wikipedia/commons/4/47/Chess_qdt45.svg",
+        bK: "https://upload.wikimedia.org/wikipedia/commons/f/f0/Chess_kdt45.svg"
+    };
 
     function writeLine(text) {
         logEl.textContent += text + "\n";
@@ -536,12 +551,28 @@
         pvTextEl.textContent = pv || "--";
     }
 
-    board = Chessboard("board", {
-        draggable: true,
-        position: "start",
-        onDragStart,
-        onDrop
-    });
+    function initBoard() {
+        if (typeof Chessboard !== "function") {
+            statusEl.textContent = "Error: Chessboard.js no cargado";
+            writeLine("[ERROR] Chessboard.js no esta disponible");
+            return;
+        }
+        if (typeof Chess !== "function") {
+            statusEl.textContent = "Error: chess.js no cargado";
+            writeLine("[ERROR] chess.js no esta disponible");
+            return;
+        }
+
+        game = new Chess();
+
+        board = Chessboard("board", {
+            draggable: true,
+            position: "start",
+            pieceTheme: piece => PIECE_ICON_MAP[piece],
+            onDragStart,
+            onDrop
+        });
+    }
 
     socket.addEventListener("open", () => {
         statusEl.textContent = "Conectado a ws://localhost:7070/chess";
@@ -588,8 +619,11 @@
     btnNext.addEventListener("click", () => navigateToPly(currentPly + 1));
     btnLatest.addEventListener("click", () => navigateToPly(timeline.length));
 
-    setEvalBarPercent(50);
-    updateHistoryPanel();
+    window.addEventListener("DOMContentLoaded", () => {
+        initBoard();
+        setEvalBarPercent(50);
+        updateHistoryPanel();
+    });
 </script>
 </body>
 </html>
