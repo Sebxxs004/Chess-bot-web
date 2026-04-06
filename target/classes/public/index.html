@@ -63,6 +63,31 @@
             gap: 10px;
         }
 
+        .board-row {
+            display: flex;
+            align-items: stretch;
+            gap: 10px;
+        }
+
+        #eval-bar {
+            width: 30px;
+            height: 400px;
+            background: #f0ede2;
+            border: 2px solid var(--border);
+            border-radius: 8px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        #eval-fill {
+            width: 100%;
+            height: 50%;
+            background: #2a2d32;
+            position: absolute;
+            bottom: 0;
+            transition: height 0.5s ease;
+        }
+
         #board {
             width: 400px;
             max-width: 100%;
@@ -88,6 +113,49 @@
             font-size: 1.1rem;
             font-weight: 700;
             color: var(--good);
+        }
+
+        #thinking-indicator {
+            font-size: 0.95rem;
+            font-weight: 700;
+            color: var(--accent);
+            display: none;
+            align-items: center;
+            gap: 8px;
+        }
+
+        #thinking-indicator.visible {
+            display: inline-flex;
+        }
+
+        .spinner {
+            width: 14px;
+            height: 14px;
+            border: 2px solid #d8d3c7;
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 0.9s linear infinite;
+        }
+
+        @keyframes spin {
+            from {
+                transform: rotate(0deg);
+            }
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        #pv-text {
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 10px;
+            background: #faf8f2;
+            font-family: Consolas, "Courier New", monospace;
+            font-size: 0.92rem;
+            min-height: 22px;
+            color: #2a2d32;
+            word-break: break-word;
         }
 
         #log {
@@ -117,6 +185,10 @@
             #board {
                 width: 100%;
             }
+
+             #eval-bar {
+                height: 320px;
+            }
         }
     </style>
 </head>
@@ -127,10 +199,21 @@
 
     <div class="layout">
         <div class="board-wrap">
-            <div id="board"></div>
+            <div class="board-row">
+                <div id="eval-bar" aria-label="Barra de ventaja">
+                    <div id="eval-fill"></div>
+                </div>
+                <div id="board"></div>
+            </div>
             <div class="meta">
                 <div class="pill status" id="status">Conectando WebSocket...</div>
                 <div class="pill">Evaluacion actual: <span id="eval">--</span></div>
+                <div class="pill">
+                    <span id="thinking-indicator"><span class="spinner"></span>Calculando...</span>
+                </div>
+                <div class="pill">
+                    PV: <div id="pv-text">--</div>
+                </div>
             </div>
         </div>
         <div>
@@ -142,10 +225,13 @@
 <script>
     const statusEl = document.getElementById("status");
     const evalEl = document.getElementById("eval");
+    const evalFillEl = document.getElementById("eval-fill");
+    const thinkingEl = document.getElementById("thinking-indicator");
+    const pvTextEl = document.getElementById("pv-text");
     const logEl = document.getElementById("log");
     const game = new Chess();
     let board;
-    let waitingEngineMove = false;
+    let isEngineThinking = false;
 
     const protocol = window.location.protocol === "https:" ? "wss" : "ws";
     const socket = new WebSocket(`${protocol}://${window.location.host}/chess`);
@@ -168,11 +254,39 @@
         board.position(game.fen(), true);
     }
 
+    function setEngineThinking(value) {
+        isEngineThinking = value;
+        thinkingEl.classList.toggle("visible", value);
+    }
+
+    function clamp(value, min, max) {
+        return Math.max(min, Math.min(max, value));
+    }
+
+    function setEvalBarPercent(percent) {
+        const clamped = clamp(percent, 0, 100);
+        evalFillEl.style.height = `${clamped}%`;
+    }
+
+    function updateEvalFromCp(cp) {
+        const pawns = (cp / 100).toFixed(2);
+        evalEl.textContent = `${pawns} peones`;
+        evalEl.style.color = cp >= 0 ? "var(--good)" : "var(--bad)";
+        const heightPercent = 50 - (cp / 20);
+        setEvalBarPercent(heightPercent);
+    }
+
+    function updateEvalFromMate(mate) {
+        evalEl.textContent = `Mate en ${Math.abs(mate)} (${mate > 0 ? "+" : "-"})`;
+        evalEl.style.color = mate > 0 ? "var(--good)" : "var(--bad)";
+        setEvalBarPercent(mate > 0 ? 0 : 100);
+    }
+
     function onDragStart(source, piece) {
         if (game.game_over()) {
             return false;
         }
-        if (waitingEngineMove) {
+        if (isEngineThinking) {
             return false;
         }
         if (game.turn() !== "w") {
@@ -191,9 +305,10 @@
         }
 
         updateBoard();
-        waitingEngineMove = true;
+        setEngineThinking(true);
         evalEl.textContent = "Pensando...";
         evalEl.style.color = "var(--muted)";
+        pvTextEl.textContent = "Calculando linea principal...";
 
         sendCommand(`position fen ${game.fen()} moves`);
         sendCommand("go movetime 1000");
@@ -202,7 +317,7 @@
 
     function applyBestMove(bestMoveToken) {
         if (!bestMoveToken || bestMoveToken === "0000" || bestMoveToken === "(none)") {
-            waitingEngineMove = false;
+            setEngineThinking(false);
             return;
         }
         const from = bestMoveToken.substring(0, 2);
@@ -212,25 +327,31 @@
         if (result !== null) {
             updateBoard();
         }
-        waitingEngineMove = false;
+        setEngineThinking(false);
     }
 
     function renderScoreFromInfo(message) {
         const cpMatch = message.match(/score\s+cp\s+(-?\d+)/);
         if (cpMatch) {
             const cp = Number(cpMatch[1]);
-            const pawns = (cp / 100).toFixed(2);
-            evalEl.textContent = `${pawns} peones`;
-            evalEl.style.color = cp >= 0 ? "var(--good)" : "var(--bad)";
+            updateEvalFromCp(cp);
             return;
         }
 
         const mateMatch = message.match(/score\s+mate\s+(-?\d+)/);
         if (mateMatch) {
             const mate = Number(mateMatch[1]);
-            evalEl.textContent = `Mate en ${Math.abs(mate)} (${mate > 0 ? "+" : "-"})`;
-            evalEl.style.color = mate > 0 ? "var(--good)" : "var(--bad)";
+            updateEvalFromMate(mate);
         }
+    }
+
+    function renderPvFromInfo(message) {
+        const pvIndex = message.indexOf(" pv ");
+        if (pvIndex < 0) {
+            return;
+        }
+        const pv = message.substring(pvIndex + 4).trim();
+        pvTextEl.textContent = pv || "--";
     }
 
     board = Chessboard("board", {
@@ -252,6 +373,7 @@
 
         if (message.startsWith("info depth")) {
             renderScoreFromInfo(message);
+            renderPvFromInfo(message);
             return;
         }
 
@@ -263,13 +385,17 @@
 
     socket.addEventListener("close", () => {
         statusEl.textContent = "Socket cerrado";
+        setEngineThinking(false);
         writeLine("[Sistema] Socket cerrado");
     });
 
     socket.addEventListener("error", () => {
         statusEl.textContent = "Error de conexión";
+        setEngineThinking(false);
         writeLine("[Sistema] Error de WebSocket");
     });
+
+    setEvalBarPercent(50);
 </script>
 </body>
 </html>
