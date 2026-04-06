@@ -54,7 +54,7 @@
 
         .layout {
             display: grid;
-            grid-template-columns: 420px 1fr;
+            grid-template-columns: 420px minmax(260px, 1fr);
             gap: 16px;
         }
 
@@ -159,8 +159,8 @@
         }
 
         #log {
-            min-height: 280px;
-            max-height: 62vh;
+            min-height: 90px;
+            max-height: 180px;
             overflow: auto;
             border: 1px solid var(--border);
             border-radius: 10px;
@@ -175,6 +175,75 @@
             margin: 0;
             font-size: 0.95rem;
             color: var(--muted);
+        }
+
+        .history-wrap {
+            display: grid;
+            gap: 10px;
+            grid-template-rows: auto 1fr auto;
+        }
+
+        .history-header {
+            margin: 0;
+            font-size: 1.05rem;
+        }
+
+        #move-history {
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            background: #fcfbf7;
+            padding: 10px;
+            overflow-y: auto;
+            min-height: 240px;
+            max-height: 420px;
+            font-family: Consolas, "Courier New", monospace;
+            line-height: 1.7;
+        }
+
+        .history-row {
+            display: grid;
+            grid-template-columns: 42px 1fr 1fr;
+            gap: 8px;
+            align-items: baseline;
+            margin-bottom: 2px;
+        }
+
+        .move-num {
+            color: var(--muted);
+        }
+
+        .move-san {
+            display: inline-block;
+            border-radius: 6px;
+            padding: 1px 5px;
+        }
+
+        .move-san.current {
+            background: #e2f0eb;
+            color: #0f4b3f;
+            font-weight: 700;
+        }
+
+        .nav-controls {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .nav-btn {
+            border: 1px solid var(--border);
+            background: #fff;
+            color: var(--ink);
+            border-radius: 8px;
+            min-width: 44px;
+            height: 34px;
+            font-weight: 700;
+            cursor: pointer;
+        }
+
+        .nav-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
         }
 
         @media (max-width: 900px) {
@@ -216,7 +285,15 @@
                 </div>
             </div>
         </div>
-        <div>
+        <div class="history-wrap">
+            <h2 class="history-header">Historial de Jugadas</h2>
+            <div id="move-history">Sin jugadas todavia.</div>
+            <div class="nav-controls">
+                <button id="btn-start" class="nav-btn" title="Inicio">&lt;&lt;</button>
+                <button id="btn-prev" class="nav-btn" title="Anterior">&lt;</button>
+                <button id="btn-next" class="nav-btn" title="Siguiente">&gt;</button>
+                <button id="btn-latest" class="nav-btn" title="Actual">&gt;&gt;</button>
+            </div>
             <div id="log"></div>
         </div>
     </div>
@@ -228,10 +305,18 @@
     const evalFillEl = document.getElementById("eval-fill");
     const thinkingEl = document.getElementById("thinking-indicator");
     const pvTextEl = document.getElementById("pv-text");
+    const moveHistoryEl = document.getElementById("move-history");
+    const btnStart = document.getElementById("btn-start");
+    const btnPrev = document.getElementById("btn-prev");
+    const btnNext = document.getElementById("btn-next");
+    const btnLatest = document.getElementById("btn-latest");
     const logEl = document.getElementById("log");
     const game = new Chess();
     let board;
     let isEngineThinking = false;
+    let timeline = [];
+    let currentPly = 0;
+    let currentPgn = "";
 
     const protocol = window.location.protocol === "https:" ? "wss" : "ws";
     const socket = new WebSocket(`${protocol}://${window.location.host}/chess`);
@@ -252,6 +337,101 @@
 
     function updateBoard() {
         board.position(game.fen(), true);
+    }
+
+    function toUci(move) {
+        return `${move.from}${move.to}${move.promotion || ""}`;
+    }
+
+    function getFenAtPly(ply) {
+        if (ply <= 0) {
+            return "start";
+        }
+        return timeline[ply - 1].fen;
+    }
+
+    function syncGameToCurrentPly() {
+        const fen = getFenAtPly(currentPly);
+        if (fen === "start") {
+            game.reset();
+            return;
+        }
+        game.load(fen);
+    }
+
+    function updateNavigationButtons() {
+        const hasMoves = timeline.length > 0;
+        btnStart.disabled = !hasMoves || currentPly === 0;
+        btnPrev.disabled = !hasMoves || currentPly === 0;
+        btnNext.disabled = !hasMoves || currentPly >= timeline.length;
+        btnLatest.disabled = !hasMoves || currentPly >= timeline.length;
+    }
+
+    function updateHistoryPanel() {
+        if (timeline.length === 0 || !currentPgn) {
+            moveHistoryEl.textContent = "Sin jugadas todavia.";
+            updateNavigationButtons();
+            return;
+        }
+
+        const rows = [];
+        const currentMoveNumber = currentPly > 0 ? Math.ceil(currentPly / 2) : -1;
+        const currentIsWhite = currentPly % 2 === 1;
+        const regex = /(\d+)\.\s*([^\s]+)(?:\s+([^\s]+))?/g;
+        let match;
+        while ((match = regex.exec(currentPgn)) !== null) {
+            const moveNumber = Number(match[1]);
+            const white = match[2] || "";
+            const black = match[3] || "";
+            const whiteCurrent = currentPly > 0 && moveNumber === currentMoveNumber && currentIsWhite ? "current" : "";
+            const blackCurrent = currentPly > 0 && moveNumber === currentMoveNumber && !currentIsWhite ? "current" : "";
+            rows.push(
+                `<div class="history-row">` +
+                `<span class="move-num">${moveNumber}.</span>` +
+                `<span class="move-san ${whiteCurrent}">${white}</span>` +
+                `<span class="move-san ${blackCurrent}">${black}</span>` +
+                `</div>`
+            );
+        }
+        moveHistoryEl.innerHTML = rows.join("");
+
+        const currentEl = moveHistoryEl.querySelector(".move-san.current");
+        if (currentEl) {
+            currentEl.scrollIntoView({ block: "nearest" });
+        }
+
+        updateNavigationButtons();
+    }
+
+    function registerMove(move) {
+        if (currentPly < timeline.length) {
+            timeline = timeline.slice(0, currentPly);
+        }
+        timeline.push({
+            san: move.san,
+            uci: toUci(move),
+            fen: game.fen()
+        });
+        currentPly = timeline.length;
+        currentPgn = game.pgn();
+        updateHistoryPanel();
+    }
+
+    function stopEngineSearch() {
+        if (isEngineThinking) {
+            sendCommand("stop");
+        }
+        setEngineThinking(false);
+    }
+
+    function navigateToPly(targetPly) {
+        const clamped = clamp(targetPly, 0, timeline.length);
+        stopEngineSearch();
+        currentPly = clamped;
+        syncGameToCurrentPly();
+        updateBoard();
+        updateHistoryPanel();
+        pvTextEl.textContent = "--";
     }
 
     function setEngineThinking(value) {
@@ -304,6 +484,7 @@
             return "snapback";
         }
 
+        registerMove(move);
         updateBoard();
         setEngineThinking(true);
         evalEl.textContent = "Pensando...";
@@ -325,6 +506,7 @@
         const promotion = bestMoveToken.length > 4 ? bestMoveToken.substring(4, 5) : "q";
         const result = game.move({ from, to, promotion });
         if (result !== null) {
+            registerMove(result);
             updateBoard();
         }
         setEngineThinking(false);
@@ -372,12 +554,18 @@
         writeLine(`< ${message}`);
 
         if (message.startsWith("info depth")) {
+            if (!isEngineThinking) {
+                return;
+            }
             renderScoreFromInfo(message);
             renderPvFromInfo(message);
             return;
         }
 
         if (message.startsWith("bestmove")) {
+            if (!isEngineThinking) {
+                return;
+            }
             const tokens = message.split(/\s+/);
             applyBestMove(tokens.length > 1 ? tokens[1] : "");
         }
@@ -395,7 +583,13 @@
         writeLine("[Sistema] Error de WebSocket");
     });
 
+    btnStart.addEventListener("click", () => navigateToPly(0));
+    btnPrev.addEventListener("click", () => navigateToPly(currentPly - 1));
+    btnNext.addEventListener("click", () => navigateToPly(currentPly + 1));
+    btnLatest.addEventListener("click", () => navigateToPly(timeline.length));
+
     setEvalBarPercent(50);
+    updateHistoryPanel();
 </script>
 </body>
 </html>
