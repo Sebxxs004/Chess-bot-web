@@ -1,0 +1,275 @@
+<!doctype html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chess Tutor - Tablero Vivo</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/chessboard.js/1.0.0/chessboard-1.0.0.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.13.4/chess.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/chessboard.js/1.0.0/chessboard-1.0.0.min.js"></script>
+    <style>
+        :root {
+            --bg: #f3efe5;
+            --panel: #ffffff;
+            --ink: #1e2227;
+            --accent: #1d6f5e;
+            --border: #d7cfba;
+            --muted: #5b636d;
+            --good: #1f7a55;
+            --bad: #8a2e2e;
+        }
+
+        body {
+            margin: 0;
+            font-family: "Trebuchet MS", "Segoe UI", sans-serif;
+            background: radial-gradient(circle at 18% 14%, #fff5d9 0%, var(--bg) 52%, #e8e3d5 100%);
+            color: var(--ink);
+            min-height: 100vh;
+            display: grid;
+            place-items: center;
+            padding: 16px;
+            box-sizing: border-box;
+        }
+
+        .panel {
+            width: min(980px, 100%);
+            background: var(--panel);
+            border: 2px solid var(--border);
+            border-radius: 16px;
+            padding: 16px;
+            box-shadow: 0 14px 38px rgba(0, 0, 0, 0.12);
+        }
+
+        h1 {
+            margin: 0 0 6px;
+            font-size: 1.5rem;
+        }
+
+        .subtitle {
+            margin: 0 0 14px;
+            color: var(--muted);
+            font-size: 0.95rem;
+        }
+
+        .layout {
+            display: grid;
+            grid-template-columns: 420px 1fr;
+            gap: 16px;
+        }
+
+        .board-wrap {
+            display: grid;
+            gap: 10px;
+        }
+
+        #board {
+            width: 400px;
+            max-width: 100%;
+            border: 2px solid var(--border);
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        .meta {
+            display: grid;
+            gap: 8px;
+        }
+
+        .pill {
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 10px;
+            background: #fbfaf7;
+            font-size: 0.95rem;
+        }
+
+        #eval {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--good);
+        }
+
+        #log {
+            min-height: 280px;
+            max-height: 62vh;
+            overflow: auto;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 10px;
+            background: #fcfbf7;
+            font-family: Consolas, "Courier New", monospace;
+            white-space: pre-wrap;
+            line-height: 1.3;
+        }
+
+        .status {
+            margin: 0;
+            font-size: 0.95rem;
+            color: var(--muted);
+        }
+
+        @media (max-width: 900px) {
+            .layout {
+                grid-template-columns: 1fr;
+            }
+
+            #board {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+<div class="panel">
+    <h1>Chess Tutor - Fase 4.2</h1>
+    <p class="subtitle">Mueve una pieza blanca. El bot (negras) respondera y el score se actualiza durante la busqueda.</p>
+
+    <div class="layout">
+        <div class="board-wrap">
+            <div id="board"></div>
+            <div class="meta">
+                <div class="pill status" id="status">Conectando WebSocket...</div>
+                <div class="pill">Evaluacion actual: <span id="eval">--</span></div>
+            </div>
+        </div>
+        <div>
+            <div id="log"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const statusEl = document.getElementById("status");
+    const evalEl = document.getElementById("eval");
+    const logEl = document.getElementById("log");
+    const game = new Chess();
+    let board;
+    let waitingEngineMove = false;
+
+    const protocol = window.location.protocol === "https:" ? "wss" : "ws";
+    const socket = new WebSocket(`${protocol}://${window.location.host}/chess`);
+
+    function writeLine(text) {
+        logEl.textContent += text + "\n";
+        logEl.scrollTop = logEl.scrollHeight;
+    }
+
+    function sendCommand(command) {
+        if (socket.readyState !== WebSocket.OPEN) {
+            writeLine("[WARN] Socket no esta listo");
+            return;
+        }
+        writeLine(`> ${command}`);
+        socket.send(command);
+    }
+
+    function updateBoard() {
+        board.position(game.fen(), true);
+    }
+
+    function onDragStart(source, piece) {
+        if (game.game_over()) {
+            return false;
+        }
+        if (waitingEngineMove) {
+            return false;
+        }
+        if (game.turn() !== "w") {
+            return false;
+        }
+        if (piece.startsWith("b")) {
+            return false;
+        }
+        return true;
+    }
+
+    function onDrop(source, target) {
+        const move = game.move({ from: source, to: target, promotion: "q" });
+        if (move === null) {
+            return "snapback";
+        }
+
+        updateBoard();
+        waitingEngineMove = true;
+        evalEl.textContent = "Pensando...";
+        evalEl.style.color = "var(--muted)";
+
+        sendCommand(`position fen ${game.fen()} moves`);
+        sendCommand("go movetime 1000");
+        return undefined;
+    }
+
+    function applyBestMove(bestMoveToken) {
+        if (!bestMoveToken || bestMoveToken === "0000" || bestMoveToken === "(none)") {
+            waitingEngineMove = false;
+            return;
+        }
+        const from = bestMoveToken.substring(0, 2);
+        const to = bestMoveToken.substring(2, 4);
+        const promotion = bestMoveToken.length > 4 ? bestMoveToken.substring(4, 5) : "q";
+        const result = game.move({ from, to, promotion });
+        if (result !== null) {
+            updateBoard();
+        }
+        waitingEngineMove = false;
+    }
+
+    function renderScoreFromInfo(message) {
+        const cpMatch = message.match(/score\s+cp\s+(-?\d+)/);
+        if (cpMatch) {
+            const cp = Number(cpMatch[1]);
+            const pawns = (cp / 100).toFixed(2);
+            evalEl.textContent = `${pawns} peones`;
+            evalEl.style.color = cp >= 0 ? "var(--good)" : "var(--bad)";
+            return;
+        }
+
+        const mateMatch = message.match(/score\s+mate\s+(-?\d+)/);
+        if (mateMatch) {
+            const mate = Number(mateMatch[1]);
+            evalEl.textContent = `Mate en ${Math.abs(mate)} (${mate > 0 ? "+" : "-"})`;
+            evalEl.style.color = mate > 0 ? "var(--good)" : "var(--bad)";
+        }
+    }
+
+    board = Chessboard("board", {
+        draggable: true,
+        position: "start",
+        onDragStart,
+        onDrop
+    });
+
+    socket.addEventListener("open", () => {
+        statusEl.textContent = "Conectado a ws://localhost:7070/chess";
+        writeLine("[Sistema] Socket abierto");
+        sendCommand("uci");
+    });
+
+    socket.addEventListener("message", event => {
+        const message = String(event.data || "").trim();
+        writeLine(`< ${message}`);
+
+        if (message.startsWith("info depth")) {
+            renderScoreFromInfo(message);
+            return;
+        }
+
+        if (message.startsWith("bestmove")) {
+            const tokens = message.split(/\s+/);
+            applyBestMove(tokens.length > 1 ? tokens[1] : "");
+        }
+    });
+
+    socket.addEventListener("close", () => {
+        statusEl.textContent = "Socket cerrado";
+        writeLine("[Sistema] Socket cerrado");
+    });
+
+    socket.addEventListener("error", () => {
+        statusEl.textContent = "Error de conexión";
+        writeLine("[Sistema] Error de WebSocket");
+    });
+</script>
+</body>
+</html>

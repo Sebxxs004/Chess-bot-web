@@ -36,6 +36,16 @@ public final class TranspositionTable {
         return null;
     }
 
+    public void clear() {
+        for (int index = 0; index < keys.length; index++) {
+            keys[index] = 0L;
+            depths[index] = 0;
+            scores[index] = 0;
+            flags[index] = 0;
+            bestMoves[index] = 0;
+        }
+    }
+
     public void store(long key, int depth, int score, byte flag, Move bestMove) {
         int index = index(key);
         if (keys[index] != 0L && keys[index] != key && depths[index] > depth) {

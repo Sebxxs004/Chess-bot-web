@@ -1,4 +1,4 @@
 -------------------------------------------------------------------------------
 Test set: com.chess.engine.moves.PerftTest
 -------------------------------------------------------------------------------
-Tests run: 8, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.291 s -- in com.chess.engine.moves.PerftTest
+Tests run: 8, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.265 s -- in com.chess.engine.moves.PerftTest

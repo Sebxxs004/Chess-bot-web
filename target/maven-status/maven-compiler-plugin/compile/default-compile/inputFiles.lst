@@ -3,8 +3,10 @@ C:\Users\sebas\Desktop\Repositorios\Chess-bot\src\main\java\com\chess\engine\boa
 C:\Users\sebas\Desktop\Repositorios\Chess-bot\src\main\java\com\chess\engine\board\BoardConstants.java
 C:\Users\sebas\Desktop\Repositorios\Chess-bot\src\main\java\com\chess\engine\board\FenUtility.java
 C:\Users\sebas\Desktop\Repositorios\Chess-bot\src\main\java\com\chess\engine\board\PieceType.java
+C:\Users\sebas\Desktop\Repositorios\Chess-bot\src\main\java\com\chess\engine\ChessServer.java
 C:\Users\sebas\Desktop\Repositorios\Chess-bot\src\main\java\com\chess\engine\debug\BugHunterRunner.java
 C:\Users\sebas\Desktop\Repositorios\Chess-bot\src\main\java\com\chess\engine\debug\TacticalBenchmarkRunner.java
+C:\Users\sebas\Desktop\Repositorios\Chess-bot\src\main\java\com\chess\engine\Main.java
 C:\Users\sebas\Desktop\Repositorios\Chess-bot\src\main\java\com\chess\engine\moves\Move.java
 C:\Users\sebas\Desktop\Repositorios\Chess-bot\src\main\java\com\chess\engine\moves\MoveGenerator.java
 C:\Users\sebas\Desktop\Repositorios\Chess-bot\src\main\java\com\chess\engine\moves\MoveType.java
@@ -13,5 +15,7 @@ C:\Users\sebas\Desktop\Repositorios\Chess-bot\src\main\java\com\chess\engine\sea
 C:\Users\sebas\Desktop\Repositorios\Chess-bot\src\main\java\com\chess\engine\search\MoveOrdering.java
 C:\Users\sebas\Desktop\Repositorios\Chess-bot\src\main\java\com\chess\engine\search\Search.java
 C:\Users\sebas\Desktop\Repositorios\Chess-bot\src\main\java\com\chess\engine\search\SearchDiagnostics.java
+C:\Users\sebas\Desktop\Repositorios\Chess-bot\src\main\java\com\chess\engine\search\TimeManager.java
 C:\Users\sebas\Desktop\Repositorios\Chess-bot\src\main\java\com\chess\engine\search\TranspositionTable.java
 C:\Users\sebas\Desktop\Repositorios\Chess-bot\src\main\java\com\chess\engine\search\Zobrist.java
+C:\Users\sebas\Desktop\Repositorios\Chess-bot\src\main\java\com\chess\engine\UCI.java
