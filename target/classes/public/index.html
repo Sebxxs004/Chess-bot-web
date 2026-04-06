@@ -20,28 +20,41 @@
             --muted: #5f6b7c;
             --good: #1f7a55;
             --bad: #8a2e2e;
+            --board-size: min(50vh, 34vw, 500px);
+        }
+
+        html,
+        body {
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            overflow: hidden;
         }
 
         body {
-            margin: 0;
             font-family: "Trebuchet MS", "Segoe UI", sans-serif;
             background: radial-gradient(circle at 18% 14%, #ffffff 0%, var(--bg) 60%, #e6ebf2 100%);
             color: var(--ink);
-            min-height: 100vh;
-            display: grid;
-            place-items: center;
-            padding: 16px;
+            min-height: 100%;
+            display: block;
+            padding: 0;
             box-sizing: border-box;
         }
 
         .panel {
-            width: min(980px, 100%);
+            width: 100vw;
+            height: 100vh;
             background: var(--panel);
             border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 16px;
-            box-shadow: 0 12px 28px rgba(28, 38, 56, 0.1);
+            border-radius: 0;
+            padding: 14px;
+            box-shadow: none;
             position: relative;
+            box-sizing: border-box;
+            display: grid;
+            grid-template-rows: auto auto auto minmax(0, 1fr);
+            gap: 10px;
+            overflow: hidden;
         }
 
         h1 {
@@ -50,31 +63,105 @@
         }
 
         .subtitle {
-            margin: 0 0 14px;
+            margin: 0;
             color: var(--muted);
             font-size: 0.95rem;
         }
 
+        .mode-switch {
+            display: inline-flex;
+            gap: 8px;
+            margin-bottom: 0;
+            padding: 6px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            background: #f8fbff;
+            box-shadow: 0 4px 10px rgba(37, 52, 78, 0.06);
+            width: fit-content;
+        }
+
+        .mode-btn {
+            border: 1px solid var(--border);
+            background: #fff;
+            color: var(--ink);
+            border-radius: 8px;
+            height: 32px;
+            padding: 0 10px;
+            font-weight: 700;
+            cursor: pointer;
+        }
+
+        .mode-btn.active {
+            border-color: #1d4ed8;
+            background: linear-gradient(120deg, #2563eb 0%, #1d4ed8 100%);
+            color: #fff;
+        }
+
         .layout {
             display: grid;
-            grid-template-columns: 420px minmax(260px, 1fr);
-            gap: 16px;
+            grid-template-columns: minmax(360px, 0.95fr) minmax(0, 1.05fr);
+            gap: clamp(16px, 2.2vw, 28px);
+            min-height: 0;
+            height: 100%;
+            align-items: start;
         }
 
         .board-wrap {
             display: grid;
+            grid-template-rows: auto minmax(0, 1fr);
             gap: 10px;
+            min-height: 0;
+            overflow: hidden;
         }
 
         .board-row {
             display: flex;
+            align-items: flex-start;
+            gap: 4px;
+        }
+
+        .eval-column {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .eval-middle {
+            display: flex;
             align-items: stretch;
-            gap: 10px;
+            gap: 3px;
+            height: var(--board-size);
+        }
+
+        .eval-percent {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: var(--muted);
+            min-width: 44px;
+            text-align: center;
+        }
+
+        #eval-title-vertical {
+            writing-mode: vertical-rl;
+            transform: rotate(180deg);
+            letter-spacing: 1.5px;
+            font-size: 0.72rem;
+            font-weight: 800;
+            color: #45566f;
+            background: #edf3ff;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 8px 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            user-select: none;
         }
 
         #eval-bar {
             width: 30px;
-            height: 400px;
+            height: var(--board-size);
             background: #eef2f7;
             border: 1px solid var(--border);
             border-radius: 8px;
@@ -88,19 +175,20 @@
             height: 50%;
             background: linear-gradient(180deg, #394356 0%, #1f2736 100%);
             position: absolute;
-            bottom: 0;
+            top: 0;
             transition: height 0.5s ease;
         }
 
         #eval-floating {
             position: absolute;
-            left: 44px;
-            top: 12px;
+            left: 50%;
+            transform: translateX(-50%);
+            top: 8px;
             background: rgba(26, 36, 51, 0.9);
             color: #fff;
             border-radius: 8px;
-            padding: 3px 8px;
-            font-size: 0.82rem;
+            padding: 2px 6px;
+            font-size: 0.74rem;
             font-weight: 700;
             pointer-events: none;
             transition: top 0.35s ease;
@@ -108,7 +196,7 @@
         }
 
         #board {
-            width: 400px;
+            width: var(--board-size);
             max-width: 100%;
             border: 1px solid var(--border);
             border-radius: 8px;
@@ -118,7 +206,17 @@
 
         .meta {
             display: grid;
+            grid-template-columns: 1fr 1fr;
             gap: 8px;
+            min-height: 0;
+            overflow: auto;
+            padding-right: 2px;
+        }
+
+        .meta > :nth-child(1),
+        .meta > :nth-child(2),
+        .meta > :nth-child(6) {
+            grid-column: 1 / -1;
         }
 
         .pill {
@@ -187,8 +285,8 @@
         }
 
         #log {
-            min-height: 90px;
-            max-height: 180px;
+            min-height: 0;
+            height: 100%;
             overflow: auto;
             border: 1px solid var(--border);
             border-radius: 8px;
@@ -208,7 +306,9 @@
         .history-wrap {
             display: grid;
             gap: 10px;
-            grid-template-rows: auto 1fr auto;
+            grid-template-rows: auto minmax(0, 1fr) auto auto auto minmax(110px, 0.42fr);
+            min-height: 0;
+            overflow: hidden;
         }
 
         .history-header {
@@ -229,10 +329,11 @@
             background: #f8fbff;
             padding: 10px;
             overflow-y: auto;
-            min-height: 240px;
-            max-height: 420px;
+            min-height: 0;
+            max-height: none;
             font-family: Consolas, "Courier New", monospace;
             line-height: 1.7;
+            text-transform: uppercase;
             box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.85);
         }
 
@@ -325,15 +426,30 @@
         }
 
         .nav-controls {
-            display: flex;
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
             gap: 8px;
-            flex-wrap: wrap;
+        }
+
+        .nav-subtitle {
+            margin: 0;
+            font-size: 0.82rem;
+            color: var(--muted);
         }
 
         .coach-controls {
-            display: flex;
-            gap: 8px;
-            flex-wrap: wrap;
+            display: grid;
+            grid-template-columns: auto minmax(0, 1fr);
+            gap: 10px;
+            align-items: center;
+            padding: 8px 10px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            background: #f8fbff;
+        }
+
+        .hidden {
+            display: none !important;
         }
 
         .nav-btn {
@@ -341,10 +457,30 @@
             background: #fff;
             color: var(--ink);
             border-radius: 8px;
-            min-width: 44px;
-            height: 34px;
+            min-width: 0;
+            min-height: 48px;
             font-weight: 700;
             cursor: pointer;
+            padding: 6px 8px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 7px;
+            text-align: left;
+        }
+
+        .nav-btn .icon {
+            font-size: 1rem;
+            font-weight: 900;
+            color: #1f4db0;
+            line-height: 1;
+            min-width: 18px;
+            text-align: center;
+        }
+
+        .nav-btn .legend {
+            font-size: 0.86rem;
+            line-height: 1.1;
         }
 
         .nav-btn:disabled {
@@ -361,6 +497,12 @@
             padding: 0 12px;
             font-weight: 700;
             cursor: pointer;
+        }
+
+        .help-btn {
+            border-color: #c58a2d;
+            background: linear-gradient(120deg, #fff7e2 0%, #ffe4af 100%);
+            color: #7a4a00;
         }
 
         .primary-btn {
@@ -395,10 +537,242 @@
             display: block;
         }
 
+        #endgame-overlay {
+            position: fixed;
+            inset: 0;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 999;
+            background: radial-gradient(circle at 50% 20%, rgba(64, 96, 160, 0.3) 0%, rgba(9, 14, 24, 0.75) 70%);
+            backdrop-filter: blur(4px);
+        }
+
+        #endgame-overlay.visible {
+            display: flex;
+            animation: overlayIn 320ms ease-out;
+        }
+
+        .endgame-card {
+            width: min(560px, calc(100vw - 32px));
+            border-radius: 16px;
+            padding: 20px 22px;
+            background: linear-gradient(160deg, #0f1b2e 0%, #1d3052 100%);
+            color: #f8fbff;
+            border: 1px solid rgba(176, 205, 255, 0.45);
+            box-shadow: 0 24px 54px rgba(9, 16, 28, 0.48);
+            position: relative;
+            overflow: hidden;
+            animation: cardRise 450ms ease-out;
+        }
+
+        .endgame-card.draw {
+            background: linear-gradient(160deg, #223047 0%, #334864 100%);
+            border-color: rgba(190, 217, 255, 0.42);
+        }
+
+        .endgame-glow {
+            position: absolute;
+            width: 360px;
+            height: 360px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(120, 168, 255, 0.36) 0%, rgba(84, 136, 233, 0.08) 55%, rgba(84, 136, 233, 0) 75%);
+            top: -190px;
+            right: -130px;
+            animation: glowPulse 2.4s ease-in-out infinite;
+            pointer-events: none;
+        }
+
+        .endgame-title {
+            margin: 0;
+            font-size: 2rem;
+            letter-spacing: 0.5px;
+            text-shadow: 0 2px 14px rgba(40, 97, 206, 0.38);
+        }
+
+        .endgame-subtitle {
+            margin: 8px 0 0;
+            font-size: 1.02rem;
+            color: #d8e5ff;
+            line-height: 1.4;
+        }
+
+        .endgame-actions {
+            margin-top: 16px;
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .endgame-btn {
+            border: 1px solid rgba(172, 202, 255, 0.58);
+            border-radius: 10px;
+            background: linear-gradient(140deg, #2f6be0 0%, #1f4eb0 100%);
+            color: #fff;
+            padding: 8px 12px;
+            font-weight: 700;
+            cursor: pointer;
+        }
+
+        .endgame-btn.secondary {
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+        .endgame-particles {
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            overflow: hidden;
+        }
+
+        .endgame-particle {
+            position: absolute;
+            width: 6px;
+            height: 6px;
+            border-radius: 999px;
+            background: rgba(184, 214, 255, 0.8);
+            box-shadow: 0 0 12px rgba(157, 197, 255, 0.7);
+            animation: particleRise linear infinite;
+        }
+
+        .endgame-shake {
+            animation: epicShake 420ms ease-in-out;
+        }
+
+        @keyframes overlayIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        @keyframes cardRise {
+            from {
+                opacity: 0;
+                transform: translateY(18px) scale(0.96);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+
+        @keyframes glowPulse {
+            0% { transform: scale(0.95); opacity: 0.72; }
+            50% { transform: scale(1.06); opacity: 1; }
+            100% { transform: scale(0.95); opacity: 0.72; }
+        }
+
+        @keyframes particleRise {
+            0% {
+                transform: translateY(0) scale(0.85);
+                opacity: 0;
+            }
+            15% {
+                opacity: 1;
+            }
+            100% {
+                transform: translateY(-120px) scale(1.2);
+                opacity: 0;
+            }
+        }
+
+        @keyframes epicShake {
+            0%, 100% { transform: translateX(0); }
+            20% { transform: translateX(-5px); }
+            40% { transform: translateX(5px); }
+            60% { transform: translateX(-4px); }
+            80% { transform: translateX(4px); }
+        }
+
         .coach-note {
             margin: 0;
-            font-size: 0.85rem;
+            font-size: 0.84rem;
             color: var(--muted);
+            line-height: 1.35;
+            padding: 2px 0;
+        }
+
+        #move-feedback-cloud {
+            display: none;
+            position: relative;
+            border-radius: 12px;
+            padding: 10px 12px;
+            font-size: 0.86rem;
+            line-height: 1.35;
+            box-shadow: 0 10px 20px rgba(27, 37, 52, 0.14);
+        }
+
+        #move-feedback-cloud.visible {
+            display: block;
+        }
+
+        #move-feedback-cloud.good {
+            background: linear-gradient(180deg, #effdf4 0%, #dcf8e8 100%);
+            border: 1px solid #8acaa2;
+            color: #16513a;
+        }
+
+        #move-feedback-cloud.bad {
+            background: linear-gradient(180deg, #fff4ed 0%, #ffe2d2 100%);
+            border: 1px solid #e0a07d;
+            color: #6f2d10;
+        }
+
+        .coach-note-box {
+            background: #f4f8ff;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 8px 10px;
+            line-height: 1.35;
+        }
+
+        #help-panel {
+            margin-top: 4px;
+            border: 1px solid #f0c36d;
+            background: linear-gradient(180deg, #fffaf0 0%, #fff3d9 100%);
+            border-radius: 8px;
+            padding: 9px 10px;
+            color: #5f3c00;
+            font-size: 0.86rem;
+            line-height: 1.4;
+        }
+
+        #help-panel strong {
+            color: #6d4200;
+        }
+
+        .coach-line {
+            margin-top: 6px;
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .coord-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid #c9d7ee;
+            background: #ffffff;
+            color: #1f3d7a;
+            border-radius: 999px;
+            padding: 2px 8px;
+            font-size: 0.78rem;
+            font-weight: 700;
+        }
+
+        .coord-arrow {
+            font-weight: 800;
+            color: #2d4f95;
+            font-size: 0.86rem;
+        }
+
+        .pv-strip {
+            margin-top: 4px;
+            font-family: Consolas, "Courier New", monospace;
+            font-size: 0.78rem;
+            color: #51627b;
+            word-break: break-word;
         }
 
         .highlight-source {
@@ -409,9 +783,21 @@
             box-shadow: inset 0 0 0 4px rgba(174, 67, 67, 0.45);
         }
 
+        .highlight-legal {
+            box-shadow: inset 0 0 0 9999px rgba(37, 99, 235, 0.2);
+        }
+
+        .highlight-legal-source {
+            box-shadow: inset 0 0 0 9999px rgba(29, 78, 216, 0.28);
+        }
+
         @media (max-width: 900px) {
             .layout {
                 grid-template-columns: 1fr;
+            }
+
+            :root {
+                --board-size: min(46vh, 92vw);
             }
 
             #board {
@@ -419,7 +805,30 @@
             }
 
              #eval-bar {
-                height: 320px;
+                height: var(--board-size);
+            }
+
+            .eval-middle {
+                height: var(--board-size);
+            }
+
+            .history-wrap {
+                grid-template-rows: auto minmax(170px, 1fr) auto auto auto minmax(90px, 0.4fr);
+            }
+
+            .meta {
+                grid-template-columns: 1fr;
+            }
+
+            .coach-controls {
+                grid-template-columns: 1fr;
+                align-items: start;
+            }
+
+            .meta > :nth-child(1),
+            .meta > :nth-child(2),
+            .meta > :nth-child(6) {
+                grid-column: auto;
             }
         }
     </style>
@@ -429,21 +838,33 @@
     <div id="game-result-banner"></div>
     <h1>Chess Tutor - Fase 4.2</h1>
     <p class="subtitle">Mueve una pieza blanca. El bot (negras) respondera y el score se actualiza durante la busqueda.</p>
+    <div class="mode-switch" aria-label="Selector de modo">
+        <button id="btn-mode-standard" class="mode-btn active" title="Jugar sin ayuda">Modo normal</button>
+        <button id="btn-mode-coach" class="mode-btn" title="Entrenar con tutor">Modo ayuda</button>
+    </div>
 
     <div class="layout">
         <div class="board-wrap">
             <div class="board-row">
-                <div id="eval-bar" aria-label="Barra de ventaja">
-                    <div id="eval-fill"></div>
-                    <div id="eval-floating">+0.0</div>
+                <div class="eval-column" aria-label="Barra lateral de ventaja">
+                    <div id="eval-white-pct" class="eval-percent">50%</div>
+                    <div class="eval-middle">
+                        <div id="eval-title-vertical">VENTAJA</div>
+                        <div id="eval-bar" aria-label="Barra de ventaja">
+                            <div id="eval-fill"></div>
+                            <div id="eval-floating">+0.0</div>
+                        </div>
+                    </div>
+                    <div id="eval-black-pct" class="eval-percent">50%</div>
                 </div>
                 <div id="board"></div>
             </div>
             <div class="meta">
                 <div class="pill status" id="status">Conectando WebSocket...</div>
+                <div id="move-feedback-cloud"></div>
                 <div class="pill">Evaluacion actual: <span id="eval">--</span></div>
                 <div class="pill">Turno: <span id="turn-indicator">Blancas</span></div>
-                <div class="pill">
+                <div id="thinking-pill" class="pill hidden">
                     <span id="thinking-indicator"><span class="spinner"></span>Calculando...</span>
                 </div>
                 <div class="pill">
@@ -457,29 +878,68 @@
                 <button id="btn-new-game" class="primary-btn" title="Reiniciar partida">Nueva Partida</button>
             </div>
             <div id="move-history">Sin jugadas todavia.</div>
+            <p class="nav-subtitle">Flechas para moverse entre los movimientos</p>
             <div class="nav-controls">
-                <button id="btn-start" class="nav-btn" title="Inicio">&lt;&lt;</button>
-                <button id="btn-prev" class="nav-btn" title="Anterior">&lt;</button>
-                <button id="btn-next" class="nav-btn" title="Siguiente">&gt;</button>
-                <button id="btn-latest" class="nav-btn" title="Actual">&gt;&gt;</button>
+                <button id="btn-start" class="nav-btn" title="Ir al inicio">
+                    <span class="icon">⏮</span>
+                    <span class="legend">Inicio</span>
+                </button>
+                <button id="btn-prev" class="nav-btn" title="Ir al movimiento anterior">
+                    <span class="icon">◀</span>
+                    <span class="legend">Anterior</span>
+                </button>
+                <button id="btn-next" class="nav-btn" title="Ir al movimiento siguiente">
+                    <span class="icon">▶</span>
+                    <span class="legend">Siguiente</span>
+                </button>
+                <button id="btn-latest" class="nav-btn" title="Ir a la posicion actual">
+                    <span class="icon">⏭</span>
+                    <span class="legend">Actual</span>
+                </button>
             </div>
             <div class="coach-controls">
                 <button id="btn-why-error" class="coach-btn" title="Mostrar linea de castigo de la jugada seleccionada">¿Por que es un error?</button>
+                <button id="btn-help-me" class="coach-btn help-btn hidden" title="Recibir ayuda contextual">Pedir ayuda</button>
                 <p id="coach-note" class="coach-note">Selecciona una jugada marcada para ver su linea de castigo.</p>
             </div>
+            <div id="help-panel" class="hidden"></div>
             <div id="log"></div>
+        </div>
+    </div>
+</div>
+
+<div id="endgame-overlay" aria-live="assertive" aria-label="Resultado final de la partida">
+    <div id="endgame-card" class="endgame-card">
+        <div class="endgame-glow"></div>
+        <div id="endgame-particles" class="endgame-particles"></div>
+        <h2 id="endgame-title" class="endgame-title">Fin de partida</h2>
+        <p id="endgame-subtitle" class="endgame-subtitle">Resultado</p>
+        <div class="endgame-actions">
+            <button id="btn-endgame-new" class="endgame-btn">Nueva partida</button>
+            <button id="btn-endgame-close" class="endgame-btn secondary">Cerrar</button>
         </div>
     </div>
 </div>
 
 <script>
     const statusEl = document.getElementById("status");
+    const moveFeedbackCloudEl = document.getElementById("move-feedback-cloud");
     const evalEl = document.getElementById("eval");
     const evalFillEl = document.getElementById("eval-fill");
     const evalFloatingEl = document.getElementById("eval-floating");
+    const evalWhitePctEl = document.getElementById("eval-white-pct");
+    const evalBlackPctEl = document.getElementById("eval-black-pct");
+    const thinkingPillEl = document.getElementById("thinking-pill");
     const thinkingEl = document.getElementById("thinking-indicator");
     const turnIndicatorEl = document.getElementById("turn-indicator");
     const gameResultBannerEl = document.getElementById("game-result-banner");
+    const endgameOverlayEl = document.getElementById("endgame-overlay");
+    const endgameCardEl = document.getElementById("endgame-card");
+    const endgameTitleEl = document.getElementById("endgame-title");
+    const endgameSubtitleEl = document.getElementById("endgame-subtitle");
+    const endgameParticlesEl = document.getElementById("endgame-particles");
+    const btnEndgameNew = document.getElementById("btn-endgame-new");
+    const btnEndgameClose = document.getElementById("btn-endgame-close");
     const pvTextEl = document.getElementById("pv-text");
     const moveHistoryEl = document.getElementById("move-history");
     const btnStart = document.getElementById("btn-start");
@@ -487,8 +947,12 @@
     const btnNext = document.getElementById("btn-next");
     const btnLatest = document.getElementById("btn-latest");
     const btnWhyError = document.getElementById("btn-why-error");
+    const btnHelpMe = document.getElementById("btn-help-me");
     const btnNewGame = document.getElementById("btn-new-game");
+    const btnModeStandard = document.getElementById("btn-mode-standard");
+    const btnModeCoach = document.getElementById("btn-mode-coach");
     const coachNoteEl = document.getElementById("coach-note");
+    const helpPanelEl = document.getElementById("help-panel");
     const logEl = document.getElementById("log");
     let game;
     let board;
@@ -499,6 +963,45 @@
     let lastWhiteEvalCp = 0;
     let pendingHumanReview = null;
     let selectedHistoryPly = null;
+    let helpTargetPly = null;
+    let suppressNextBestMove = false;
+    let trainingMode = "standard";
+    let feedbackCloudTimeoutId = null;
+    let isHintThinking = false;
+    let hintSuggestionMove = "";
+    let lastHintFen = "";
+
+    function createEndgameParticles() {
+        endgameParticlesEl.innerHTML = "";
+        for (let i = 0; i < 18; i++) {
+            const dot = document.createElement("span");
+            dot.className = "endgame-particle";
+            dot.style.left = `${Math.random() * 100}%`;
+            dot.style.bottom = `${Math.random() * 20}px`;
+            dot.style.animationDuration = `${2 + Math.random() * 2.2}s`;
+            dot.style.animationDelay = `${Math.random() * 1.4}s`;
+            dot.style.opacity = `${0.45 + Math.random() * 0.5}`;
+            endgameParticlesEl.appendChild(dot);
+        }
+    }
+
+    function showEndgameOverlay(isMate, message, detail) {
+        endgameCardEl.classList.toggle("draw", !isMate);
+        endgameCardEl.classList.remove("endgame-shake");
+        void endgameCardEl.offsetWidth;
+        if (isMate) {
+            endgameCardEl.classList.add("endgame-shake");
+        }
+        endgameTitleEl.textContent = message;
+        endgameSubtitleEl.textContent = detail;
+        createEndgameParticles();
+        endgameOverlayEl.classList.add("visible");
+    }
+
+    function hideEndgameOverlay() {
+        endgameOverlayEl.classList.remove("visible");
+        endgameParticlesEl.innerHTML = "";
+    }
 
     const protocol = window.location.protocol === "https:" ? "wss" : "ws";
     const socket = new WebSocket(`${protocol}://${window.location.host}/chess`);
@@ -533,6 +1036,7 @@
     function updateBoard() {
         board.position(game.fen(), true);
         clearPunishHighlights();
+        clearLegalHighlights();
     }
 
     function clearPunishHighlights() {
@@ -548,6 +1052,22 @@
         const to = uciMove.slice(2, 4);
         $("#board .square-" + from).addClass("highlight-source");
         $("#board .square-" + to).addClass("highlight-target");
+    }
+
+    function clearLegalHighlights() {
+        $("#board .square-55d63").removeClass("highlight-legal highlight-legal-source");
+    }
+
+    function highlightLegalMoves(sourceSquare) {
+        clearLegalHighlights();
+        const moves = game.moves({ square: sourceSquare, verbose: true });
+        if (!moves || moves.length === 0) {
+            return;
+        }
+        $("#board .square-" + sourceSquare).addClass("highlight-legal-source");
+        moves.forEach(move => {
+            $("#board .square-" + move.to).addClass("highlight-legal");
+        });
     }
 
     function toUci(move) {
@@ -576,6 +1096,93 @@
         btnPrev.disabled = !hasMoves || currentPly === 0;
         btnNext.disabled = !hasMoves || currentPly >= timeline.length;
         btnLatest.disabled = !hasMoves || currentPly >= timeline.length;
+    }
+
+    function isErrorQuality(qualityClass) {
+        return qualityClass === "q-inaccuracy" || qualityClass === "q-mistake" || qualityClass === "q-blunder";
+    }
+
+    function setHelpTarget(plyIndex) {
+        if (trainingMode !== "coach") {
+            btnHelpMe.classList.add("hidden");
+            helpPanelEl.classList.add("hidden");
+            helpPanelEl.innerHTML = "";
+            return;
+        }
+        helpTargetPly = plyIndex;
+        const isValid = Number.isInteger(plyIndex) && plyIndex >= 0 && plyIndex < timeline.length;
+        const enabled = isValid && isErrorQuality(timeline[plyIndex].qualityClass);
+        btnHelpMe.classList.toggle("hidden", !enabled);
+        if (!enabled) {
+            helpPanelEl.classList.add("hidden");
+            helpPanelEl.innerHTML = "";
+        }
+    }
+
+    function hideMoveFeedbackCloud() {
+        if (feedbackCloudTimeoutId) {
+            clearTimeout(feedbackCloudTimeoutId);
+            feedbackCloudTimeoutId = null;
+        }
+        moveFeedbackCloudEl.classList.remove("visible", "good", "bad");
+        moveFeedbackCloudEl.innerHTML = "";
+    }
+
+    function showMoveFeedbackCloud(kind, title, reason, autoHide = true) {
+        if (trainingMode !== "coach") {
+            return;
+        }
+        hideMoveFeedbackCloud();
+        moveFeedbackCloudEl.classList.add("visible", kind);
+        moveFeedbackCloudEl.innerHTML = `<strong>${title}</strong><br>${reason}`;
+        if (autoHide) {
+            feedbackCloudTimeoutId = setTimeout(() => {
+                hideMoveFeedbackCloud();
+            }, 6500);
+        }
+    }
+
+    function requestHintIfNeeded() {
+        if (trainingMode !== "coach" || !game || game.game_over()) {
+            return;
+        }
+        if (game.turn() !== "w") {
+            return;
+        }
+        if (isEngineThinking || isHintThinking) {
+            return;
+        }
+
+        const fen = game.fen();
+        if (fen === lastHintFen && hintSuggestionMove) {
+            return;
+        }
+
+        isHintThinking = true;
+        hintSuggestionMove = "";
+        lastHintFen = fen;
+        sendCommand(`position fen ${fen} moves`);
+        sendCommand("go movetime 350");
+    }
+
+    function previewMoveQualityBeforeDrop(source, target) {
+        if (trainingMode !== "coach" || !source || !target || target === "offboard") {
+            return;
+        }
+        const legalMoves = game.moves({ square: source, verbose: true });
+        const isLegal = legalMoves.some(move => move.to === target);
+        if (!isLegal) {
+            showMoveFeedbackCloud("bad", "Movimiento ilegal", "Esa casilla no es valida para la pieza seleccionada.", false);
+            return;
+        }
+
+        const currentMove = `${source}${target}`;
+        if (hintSuggestionMove && hintSuggestionMove.startsWith(currentMove)) {
+            showMoveFeedbackCloud("good", "Buena idea", "Coincide con la recomendacion principal del tutor.", false);
+        } else {
+            const suggestion = hintSuggestionMove ? `${hintSuggestionMove.slice(0, 2)} → ${hintSuggestionMove.slice(2, 4)}` : "(analizando)";
+            showMoveFeedbackCloud("bad", "Riesgo detectado", `Podria ser inferior. Sugerencia actual: ${suggestion}.`, false);
+        }
     }
 
     function updateHistoryPanel() {
@@ -649,7 +1256,31 @@
         currentPly = timeline.length;
         currentPgn = game.pgn();
         selectedHistoryPly = currentPly - 1;
+        setHelpTarget(null);
         updateHistoryPanel();
+    }
+
+    function applyTrainingMode(mode) {
+        trainingMode = mode === "coach" ? "coach" : "standard";
+        btnModeStandard.classList.toggle("active", trainingMode === "standard");
+        btnModeCoach.classList.toggle("active", trainingMode === "coach");
+
+        const coachEnabled = trainingMode === "coach";
+        btnWhyError.classList.toggle("hidden", !coachEnabled);
+        coachNoteEl.classList.toggle("hidden", !coachEnabled);
+        if (!coachEnabled) {
+            btnHelpMe.classList.add("hidden");
+            helpPanelEl.classList.add("hidden");
+            helpPanelEl.innerHTML = "";
+            helpTargetPly = null;
+            suppressNextBestMove = false;
+            coachNoteEl.textContent = "Modo normal activo. Juega sin asistencia.";
+            hideMoveFeedbackCloud();
+        } else {
+            coachNoteEl.textContent = "Selecciona una jugada marcada para ver su linea de castigo.";
+            setHelpTarget(selectedHistoryPly);
+            requestHintIfNeeded();
+        }
     }
 
     function stopEngineSearch() {
@@ -672,6 +1303,7 @@
 
     function setEngineThinking(value) {
         isEngineThinking = value;
+        thinkingPillEl.classList.toggle("hidden", !value);
         thinkingEl.classList.toggle("visible", value);
         updateTurnIndicator();
     }
@@ -695,7 +1327,12 @@
     function setEvalBarPercent(percent) {
         const clamped = clamp(percent, 0, 100);
         evalFillEl.style.height = `${clamped}%`;
-        const evalBarHeight = 400;
+        const whitePct = Math.round(100 - clamped);
+        const blackPct = Math.round(clamped);
+        // Visual convention: top label follows top side (black), bottom label follows bottom side (white).
+        evalWhitePctEl.textContent = `${blackPct}%`;
+        evalBlackPctEl.textContent = `${whitePct}%`;
+        const evalBarHeight = evalFillEl.parentElement ? evalFillEl.parentElement.clientHeight : 400;
         const visualTop = 6 + (clamped / 100) * (evalBarHeight - 12);
         evalFloatingEl.style.top = `${clamp(visualTop, 8, evalBarHeight - 26)}px`;
     }
@@ -725,25 +1362,35 @@
         if (!game || !game.game_over()) {
             gameResultBannerEl.classList.remove("visible");
             gameResultBannerEl.textContent = "";
+            hideEndgameOverlay();
             return false;
         }
 
         let message = "Partida Tablas";
+        let detail = "Empate por regla de ajedrez.";
+        let isMate = false;
         if (game.in_checkmate()) {
             const winner = game.turn() === "w" ? "Negro" : "Blanco";
-            message = `!Jaque Mate! Ganador: ${winner}`;
+            message = `¡Jaque Mate! Ganador: ${winner}`;
+            detail = `Golpe final contundente. ${winner} cierra la partida con mate.`;
+            isMate = true;
         } else if (game.in_stalemate()) {
             message = "Partida Tablas por Ahogado";
+            detail = "No hay jugadas legales: ahogado.";
         } else if (game.insufficient_material()) {
             message = "Partida Tablas por Material Insuficiente";
+            detail = "No existe material suficiente para dar mate.";
         } else if (game.in_threefold_repetition()) {
             message = "Partida Tablas por Triple Repeticion";
+            detail = "La posicion se repitio tres veces.";
         } else if (game.in_draw()) {
             message = "Partida Tablas";
+            detail = "La partida finaliza en empate.";
         }
 
         gameResultBannerEl.textContent = message;
         gameResultBannerEl.classList.add("visible");
+        showEndgameOverlay(isMate, message, detail);
         setEngineThinking(false);
         updateTurnIndicator();
         return true;
@@ -764,10 +1411,17 @@
         selectedHistoryPly = null;
         pendingHumanReview = null;
         lastWhiteEvalCp = 0;
+        isHintThinking = false;
+        hintSuggestionMove = "";
+        lastHintFen = "";
 
         gameResultBannerEl.classList.remove("visible");
         gameResultBannerEl.textContent = "";
+        hideEndgameOverlay();
         coachNoteEl.textContent = "Selecciona una jugada marcada para ver su linea de castigo.";
+        helpPanelEl.classList.add("hidden");
+        helpPanelEl.innerHTML = "";
+        hideMoveFeedbackCloud();
         pvTextEl.textContent = "--";
         evalEl.textContent = "0.00 peones";
         evalEl.style.color = "var(--good)";
@@ -777,6 +1431,7 @@
         updateHistoryPanel();
         setEngineThinking(false);
         updateTurnIndicator();
+        applyTrainingMode(trainingMode);
     }
 
     function newGame() {
@@ -797,21 +1452,41 @@
         if (piece.startsWith("b")) {
             return false;
         }
+        if (isHintThinking) {
+            sendCommand("stop");
+            isHintThinking = false;
+        }
+        highlightLegalMoves(source);
         return true;
+    }
+
+    function onDragMove(newLoc, oldLoc, source) {
+        if (trainingMode !== "coach") {
+            return;
+        }
+        previewMoveQualityBeforeDrop(source, newLoc);
     }
 
     function onDrop(source, target) {
         const preEvalCp = lastWhiteEvalCp;
         const move = game.move({ from: source, to: target, promotion: "q" });
         if (move === null) {
+            clearLegalHighlights();
+            hideMoveFeedbackCloud();
             return "snapback";
         }
 
+        clearLegalHighlights();
+        hideMoveFeedbackCloud();
+        hintSuggestionMove = "";
+        lastHintFen = "";
         registerMove(move);
-        pendingHumanReview = {
-            plyIndex: currentPly - 1,
-            preEvalCp
-        };
+        pendingHumanReview = trainingMode === "coach"
+            ? {
+                plyIndex: currentPly - 1,
+                preEvalCp
+            }
+            : null;
         updateBoard();
         if (evaluateGameOverAndNotify()) {
             return undefined;
@@ -842,6 +1517,7 @@
         }
         setEngineThinking(false);
         evaluateGameOverAndNotify();
+        requestHintIfNeeded();
     }
 
     function renderScoreFromInfo(message) {
@@ -884,16 +1560,16 @@
 
     function classifyMoveQuality(dropCp) {
         if (dropCp < 20) {
-            return { qualityClass: "q-excellent", qualityLabel: "! Excelente" };
+            return { qualityClass: "q-excellent", qualityLabel: "★ Excelente" };
         }
         if (dropCp >= 50 && dropCp < 100) {
-            return { qualityClass: "q-inaccuracy", qualityLabel: "?! Inexactitud" };
+            return { qualityClass: "q-inaccuracy", qualityLabel: "△ Inexactitud" };
         }
         if (dropCp >= 100 && dropCp < 250) {
-            return { qualityClass: "q-mistake", qualityLabel: "? Error" };
+            return { qualityClass: "q-mistake", qualityLabel: "⚠ Error" };
         }
         if (dropCp >= 250) {
-            return { qualityClass: "q-blunder", qualityLabel: "?? Blunder" };
+            return { qualityClass: "q-blunder", qualityLabel: "⛔ Blunder" };
         }
         return { qualityClass: "", qualityLabel: "" };
     }
@@ -940,6 +1616,24 @@
         timeline[index].advice = advice;
         timeline[index].scoreDelta = dropCp;
         timeline[index].punishmentPv = pvLine || timeline[index].punishmentPv || "";
+        if (trainingMode === "coach") {
+            if (isErrorQuality(verdict.qualityClass)) {
+                showMoveFeedbackCloud("bad", `${verdict.qualityLabel || "Jugada incorrecta"}`, advice);
+            } else {
+                showMoveFeedbackCloud("good", "Buen movimiento", "Mantiene el equilibrio de la posicion. Continúa con este plan.");
+            }
+        }
+        if (trainingMode === "coach" && isErrorQuality(verdict.qualityClass)) {
+            setHelpTarget(index);
+            coachNoteEl.textContent = "Jugada mejorable detectada: se detuvo el castigo para que puedas corregir antes de seguir.";
+
+            // Modo entrenamiento: evita ejecutar el castigo y vuelve a la posicion previa.
+            suppressNextBestMove = true;
+            sendCommand("stop");
+            navigateToPly(index);
+            setEngineThinking(false);
+            requestHelp();
+        }
         updateHistoryPanel();
         pendingHumanReview = null;
     }
@@ -959,6 +1653,86 @@
             }
         }
         return -1;
+    }
+
+    function squareParts(square) {
+        if (!square || square.length < 2) {
+            return { square: "--", file: "-", rank: "-" };
+        }
+        const file = square.charAt(0);
+        const rank = square.charAt(1);
+        return { square, file, rank };
+    }
+
+    function formatPunishmentNote(firstPvMove, pv) {
+        if (!firstPvMove || firstPvMove.length < 4) {
+            return "";
+        }
+        const from = squareParts(firstPvMove.slice(0, 2));
+        const to = squareParts(firstPvMove.slice(2, 4));
+        return [
+            '<div class="coach-note-box">',
+            '<strong>Linea de castigo sugerida</strong>',
+            '<div class="coach-line">',
+            `<span class="coord-chip">Origen ${from.square} (columna ${from.file}, fila ${from.rank})</span>`,
+            '<span class="coord-arrow">→</span>',
+            `<span class="coord-chip">Destino ${to.square} (columna ${to.file}, fila ${to.rank})</span>`,
+            '</div>',
+            `<div class="pv-strip">PV completa: ${pv}</div>`,
+            '</div>'
+        ].join("");
+    }
+
+    function getFirstPvMove(pv) {
+        return (pv || "").split(/\s+/).find(token => token.length >= 4) || "";
+    }
+
+    function splitPvMoves(pv) {
+        return (pv || "").split(/\s+/).filter(token => token.length >= 4);
+    }
+
+    function formatUciArrow(uciMove) {
+        if (!uciMove || uciMove.length < 4) {
+            return "--";
+        }
+        return `${uciMove.slice(0, 2)} → ${uciMove.slice(2, 4)}`;
+    }
+
+    function requestHelp() {
+        const targetIndex = selectedHistoryPly != null ? selectedHistoryPly : helpTargetPly;
+        if (!Number.isInteger(targetIndex) || targetIndex < 0 || targetIndex >= timeline.length) {
+            helpPanelEl.classList.remove("hidden");
+            helpPanelEl.innerHTML = "<strong>Sin ayuda disponible:</strong> Selecciona una jugada marcada con △, ⚠ o ⛔.";
+            return;
+        }
+
+        const meta = timeline[targetIndex];
+        if (!isErrorQuality(meta.qualityClass)) {
+            helpPanelEl.classList.remove("hidden");
+            helpPanelEl.innerHTML = "<strong>Esta jugada no requiere ayuda:</strong> el semaforo no la marcó como error.";
+            return;
+        }
+
+        const pvMoves = splitPvMoves(meta.punishmentPv);
+        const rivalMove = pvMoves[0] || "";
+        const whiteRepairMove = pvMoves[1] || "";
+
+        if (rivalMove) {
+            highlightMoveUci(rivalMove);
+        }
+
+        const moveText = meta.san || "(jugada)";
+        const quality = meta.qualityLabel || "Jugada mejorable";
+        const rivalText = rivalMove
+            ? `<br><strong>Respuesta esperada del rival (negras):</strong> ${formatUciArrow(rivalMove)}`
+            : "";
+        const repairText = whiteRepairMove
+            ? `<br><strong>Tu plan de enmienda (blancas):</strong> tras esa respuesta, juega ${formatUciArrow(whiteRepairMove)}.`
+            : "<br><strong>Tu plan de enmienda:</strong> revisa la PV para elegir una defensa activa de blancas.";
+        const pvText = meta.punishmentPv ? `<br><small>PV: ${meta.punishmentPv}</small>` : "";
+
+        helpPanelEl.classList.remove("hidden");
+        helpPanelEl.innerHTML = `<strong>${quality} en ${moveText}</strong><br>${meta.advice}${rivalText}${repairText}${pvText}`;
     }
 
     function showPunishmentLine() {
@@ -983,7 +1757,7 @@
         selectedHistoryPly = targetIndex;
         updateHistoryPanel();
         highlightMoveUci(firstPvMove);
-        coachNoteEl.textContent = `Linea de castigo: ${pv}`;
+        coachNoteEl.innerHTML = formatPunishmentNote(firstPvMove, pv);
     }
 
     function initBoard() {
@@ -1005,7 +1779,8 @@
             position: "start",
             pieceTheme: piece => PIECE_ICON_MAP[piece],
             onDragStart,
-            onDrop
+            onDrop,
+            onSnapEnd: clearLegalHighlights
         });
         updateTurnIndicator();
         evaluateGameOverAndNotify();
@@ -1020,6 +1795,26 @@
     socket.addEventListener("message", event => {
         const message = String(event.data || "").trim();
 
+        if (isHintThinking) {
+            if (message.startsWith("info depth")) {
+                const hintPv = extractPvFromInfo(message);
+                const hintMove = getFirstPvMove(hintPv);
+                if (hintMove) {
+                    hintSuggestionMove = hintMove;
+                }
+                return;
+            }
+            if (message.startsWith("bestmove")) {
+                const tokens = message.split(/\s+/);
+                const move = tokens.length > 1 ? tokens[1] : "";
+                if (move && move !== "0000" && move !== "(none)") {
+                    hintSuggestionMove = move;
+                }
+                isHintThinking = false;
+                return;
+            }
+        }
+
         if (message.startsWith("info depth")) {
             if (!isEngineThinking) {
                 return;
@@ -1033,6 +1828,10 @@
         }
 
         if (message.startsWith("bestmove")) {
+            if (suppressNextBestMove) {
+                suppressNextBestMove = false;
+                return;
+            }
             if (!isEngineThinking) {
                 return;
             }
@@ -1044,6 +1843,7 @@
     socket.addEventListener("close", () => {
         statusEl.textContent = "Socket cerrado";
         setEngineThinking(false);
+        isHintThinking = false;
         writeLine("[Sistema] Socket cerrado");
     });
 
@@ -1058,7 +1858,15 @@
     btnNext.addEventListener("click", () => navigateToPly(currentPly + 1));
     btnLatest.addEventListener("click", () => navigateToPly(timeline.length));
     btnWhyError.addEventListener("click", showPunishmentLine);
+    btnHelpMe.addEventListener("click", requestHelp);
     btnNewGame.addEventListener("click", newGame);
+    btnEndgameNew.addEventListener("click", () => {
+        hideEndgameOverlay();
+        newGame();
+    });
+    btnEndgameClose.addEventListener("click", hideEndgameOverlay);
+    btnModeStandard.addEventListener("click", () => applyTrainingMode("standard"));
+    btnModeCoach.addEventListener("click", () => applyTrainingMode("coach"));
 
     moveHistoryEl.addEventListener("click", event => {
         const target = event.target.closest(".move-san");
@@ -1070,6 +1878,7 @@
             return;
         }
         selectedHistoryPly = ply;
+        setHelpTarget(ply);
         updateHistoryPanel();
         clearPunishHighlights();
     });
@@ -1079,6 +1888,7 @@
         setEvalBarPercent(50);
         setEvalFloatingLabel("+0.0");
         updateHistoryPanel();
+        applyTrainingMode("standard");
     });
 </script>
 </body>
