@@ -22,6 +22,18 @@ public final class MoveGenerator {
         return legalMoves;
     }
 
+    public List<Move> generateLegalCaptures(Board board) {
+        List<Move> legalCaptures = new ArrayList<>();
+        Alliance sideToMove = board.getSideToMove();
+        for (Move move : generatePseudoLegalCaptures(board, sideToMove)) {
+            Board nextBoard = board.makeMove(move);
+            if (!nextBoard.isKingInCheck(sideToMove)) {
+                legalCaptures.add(move);
+            }
+        }
+        return legalCaptures;
+    }
+
     private List<Move> generatePseudoLegalMoves(Board board, Alliance sideToMove) {
         List<Move> moves = new ArrayList<>();
         long ownPieces = sideToMove == Alliance.WHITE ? board.getWhitePieces() : board.getBlackPieces();
@@ -34,6 +46,22 @@ public final class MoveGenerator {
         generateSlidingMoves(board, sideToMove, PieceType.ROOK, occupancy, moves);
         generateSlidingMoves(board, sideToMove, PieceType.QUEEN, occupancy, moves);
         generateKingMoves(board, sideToMove, moves);
+
+        return moves;
+    }
+
+    private List<Move> generatePseudoLegalCaptures(Board board, Alliance sideToMove) {
+        List<Move> moves = new ArrayList<>();
+        long ownPieces = sideToMove == Alliance.WHITE ? board.getWhitePieces() : board.getBlackPieces();
+        long opponentPieces = sideToMove == Alliance.WHITE ? board.getBlackPieces() : board.getWhitePieces();
+        long occupancy = board.getAllPieces();
+
+        generatePawnCaptureMoves(board, sideToMove, opponentPieces, moves);
+        generateKnightCaptureMoves(board, sideToMove, ownPieces, opponentPieces, moves);
+        generateSlidingCaptureMoves(board, sideToMove, PieceType.BISHOP, occupancy, moves);
+        generateSlidingCaptureMoves(board, sideToMove, PieceType.ROOK, occupancy, moves);
+        generateSlidingCaptureMoves(board, sideToMove, PieceType.QUEEN, occupancy, moves);
+        generateKingCaptureMoves(board, sideToMove, ownPieces, opponentPieces, moves);
 
         return moves;
     }
@@ -122,6 +150,45 @@ public final class MoveGenerator {
         }
     }
 
+    private void generatePawnCaptureMoves(Board board,
+                                          Alliance sideToMove,
+                                          long opponentPieces,
+                                          List<Move> moves) {
+        long pawns = board.getPieceBitboard(sideToMove, PieceType.PAWN);
+        int enPassantSquare = board.getEnPassantSquare();
+
+        while (pawns != 0L) {
+            int fromSquare = Long.numberOfTrailingZeros(pawns);
+            pawns &= pawns - 1;
+
+            long attacks = sideToMove == Alliance.WHITE
+                    ? BoardConstants.WHITE_PAWN_ATTACKS[fromSquare] & opponentPieces
+                    : BoardConstants.BLACK_PAWN_ATTACKS[fromSquare] & opponentPieces;
+
+            while (attacks != 0L) {
+                int toSquare = Long.numberOfTrailingZeros(attacks);
+                attacks &= attacks - 1;
+                PieceType capturedPiece = pieceTypeAt(board, sideToMove.opposite(), toSquare);
+                if (capturedPiece == PieceType.KING) {
+                    continue;
+                }
+                boolean promotionRank = sideToMove == Alliance.WHITE ? BoardConstants.rankOf(fromSquare) == 6 : BoardConstants.rankOf(fromSquare) == 1;
+                if (promotionRank) {
+                    addPromotionMoves(moves, fromSquare, toSquare, capturedPiece);
+                } else {
+                    moves.add(new Move(fromSquare, toSquare, PieceType.PAWN, capturedPiece, null, MoveType.CAPTURE));
+                }
+            }
+
+            if (enPassantSquare != -1) {
+                long attackMask = sideToMove == Alliance.WHITE ? BoardConstants.WHITE_PAWN_ATTACKS[fromSquare] : BoardConstants.BLACK_PAWN_ATTACKS[fromSquare];
+                if ((attackMask & BoardConstants.bit(enPassantSquare)) != 0L) {
+                    moves.add(new Move(fromSquare, enPassantSquare, PieceType.PAWN, PieceType.PAWN, null, MoveType.EN_PASSANT));
+                }
+            }
+        }
+    }
+
     private void generateKnightMoves(Board board,
                                      Alliance sideToMove,
                                      long ownPieces,
@@ -132,6 +199,28 @@ public final class MoveGenerator {
             knights &= knights - 1;
             long targets = BoardConstants.KNIGHT_ATTACKS[fromSquare] & ~ownPieces;
             addMovesFromTargets(board, sideToMove, fromSquare, PieceType.KNIGHT, targets, moves);
+        }
+    }
+
+    private void generateKnightCaptureMoves(Board board,
+                                            Alliance sideToMove,
+                                            long ownPieces,
+                                            long opponentPieces,
+                                            List<Move> moves) {
+        long knights = board.getPieceBitboard(sideToMove, PieceType.KNIGHT);
+        while (knights != 0L) {
+            int fromSquare = Long.numberOfTrailingZeros(knights);
+            knights &= knights - 1;
+            long targets = BoardConstants.KNIGHT_ATTACKS[fromSquare] & opponentPieces;
+            while (targets != 0L) {
+                int toSquare = Long.numberOfTrailingZeros(targets);
+                targets &= targets - 1;
+                PieceType capturedPiece = pieceTypeAt(board, sideToMove.opposite(), toSquare);
+                if (capturedPiece == PieceType.KING) {
+                    continue;
+                }
+                moves.add(new Move(fromSquare, toSquare, PieceType.KNIGHT, capturedPiece, null, MoveType.CAPTURE));
+            }
         }
     }
 
@@ -150,6 +239,25 @@ public final class MoveGenerator {
             }
             if (pieceType == PieceType.ROOK || pieceType == PieceType.QUEEN) {
                 generateRayMoves(board, sideToMove, fromSquare, pieceType, occupancy, moves, 8, -8, 1, -1);
+            }
+        }
+    }
+
+    private void generateSlidingCaptureMoves(Board board,
+                                             Alliance sideToMove,
+                                             PieceType pieceType,
+                                             long occupancy,
+                                             List<Move> moves) {
+        long pieces = board.getPieceBitboard(sideToMove, pieceType);
+        while (pieces != 0L) {
+            int fromSquare = Long.numberOfTrailingZeros(pieces);
+            pieces &= pieces - 1;
+
+            if (pieceType == PieceType.BISHOP || pieceType == PieceType.QUEEN) {
+                generateRayCaptureMoves(board, sideToMove, fromSquare, pieceType, occupancy, moves, 9, 7, -7, -9);
+            }
+            if (pieceType == PieceType.ROOK || pieceType == PieceType.QUEEN) {
+                generateRayCaptureMoves(board, sideToMove, fromSquare, pieceType, occupancy, moves, 8, -8, 1, -1);
             }
         }
     }
@@ -208,6 +316,29 @@ public final class MoveGenerator {
         }
     }
 
+    private void generateKingCaptureMoves(Board board,
+                                          Alliance sideToMove,
+                                          long ownPieces,
+                                          long opponentPieces,
+                                          List<Move> moves) {
+        long kingBoard = board.getPieceBitboard(sideToMove, PieceType.KING);
+        if (kingBoard == 0L) {
+            return;
+        }
+
+        int fromSquare = Long.numberOfTrailingZeros(kingBoard);
+        long targets = BoardConstants.KING_ATTACKS[fromSquare] & opponentPieces;
+        while (targets != 0L) {
+            int toSquare = Long.numberOfTrailingZeros(targets);
+            targets &= targets - 1;
+            PieceType capturedPiece = pieceTypeAt(board, sideToMove.opposite(), toSquare);
+            if (capturedPiece == PieceType.KING) {
+                continue;
+            }
+            moves.add(new Move(fromSquare, toSquare, PieceType.KING, capturedPiece, null, MoveType.CAPTURE));
+        }
+    }
+
     private void addMovesFromTargets(Board board,
                                      Alliance sideToMove,
                                      int fromSquare,
@@ -248,6 +379,36 @@ public final class MoveGenerator {
                 }
                 MoveType moveType = capturedPiece == null ? MoveType.QUIET : MoveType.CAPTURE;
                 moves.add(new Move(fromSquare, currentSquare, pieceType, capturedPiece, null, moveType));
+                if ((occupancy & currentBit) != 0L) {
+                    break;
+                }
+            }
+        }
+    }
+
+    private void generateRayCaptureMoves(Board board,
+                                         Alliance sideToMove,
+                                         int fromSquare,
+                                         PieceType pieceType,
+                                         long occupancy,
+                                         List<Move> moves,
+                                         int... directions) {
+        long ownPieces = sideToMove == Alliance.WHITE ? board.getWhitePieces() : board.getBlackPieces();
+        for (int direction : directions) {
+            int currentSquare = fromSquare;
+            while (canStep(currentSquare, direction)) {
+                currentSquare += direction;
+                long currentBit = BoardConstants.bit(currentSquare);
+                if ((ownPieces & currentBit) != 0L) {
+                    break;
+                }
+                PieceType capturedPiece = pieceTypeAt(board, sideToMove.opposite(), currentSquare);
+                if (capturedPiece != null) {
+                    if (capturedPiece != PieceType.KING) {
+                        moves.add(new Move(fromSquare, currentSquare, pieceType, capturedPiece, null, MoveType.CAPTURE));
+                    }
+                    break;
+                }
                 if ((occupancy & currentBit) != 0L) {
                     break;
                 }

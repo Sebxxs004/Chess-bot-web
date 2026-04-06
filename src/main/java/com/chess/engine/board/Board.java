@@ -2,6 +2,7 @@ package com.chess.engine.board;
 
 import com.chess.engine.moves.Move;
 import com.chess.engine.moves.MoveType;
+import com.chess.engine.search.Zobrist;
 
 public final class Board {
 
@@ -27,6 +28,7 @@ public final class Board {
     private final int enPassantSquare;
     private final int halfmoveClock;
     private final int fullmoveNumber;
+    private final long zobristKey;
 
     private Board(long whitePawns,
                   long whiteKnights,
@@ -47,7 +49,8 @@ public final class Board {
                   boolean blackQueenSideCastle,
                   int enPassantSquare,
                   int halfmoveClock,
-                  int fullmoveNumber) {
+                  int fullmoveNumber,
+                  long zobristKey) {
         this.whitePawns = whitePawns;
         this.whiteKnights = whiteKnights;
         this.whiteBishops = whiteBishops;
@@ -68,6 +71,7 @@ public final class Board {
         this.enPassantSquare = enPassantSquare;
         this.halfmoveClock = halfmoveClock;
         this.fullmoveNumber = fullmoveNumber;
+        this.zobristKey = zobristKey;
     }
 
     public static Board initialPosition() {
@@ -91,7 +95,26 @@ public final class Board {
                 true,
                 -1
                 ,0,
-                1
+                1,
+                computeZobristKey(
+                    BoardConstants.RANK_2,
+                    BoardConstants.bit(1) | BoardConstants.bit(6),
+                    BoardConstants.bit(2) | BoardConstants.bit(5),
+                    BoardConstants.bit(0) | BoardConstants.bit(7),
+                    BoardConstants.bit(3),
+                    BoardConstants.bit(4),
+                    BoardConstants.RANK_7,
+                    BoardConstants.bit(57) | BoardConstants.bit(62),
+                    BoardConstants.bit(58) | BoardConstants.bit(61),
+                    BoardConstants.bit(56) | BoardConstants.bit(63),
+                    BoardConstants.bit(59),
+                    BoardConstants.bit(60),
+                    true,
+                    true,
+                    true,
+                    true,
+                    true,
+                    -1)
         );
     }
 
@@ -135,7 +158,26 @@ public final class Board {
                 blackQueenSideCastle,
                 enPassantSquare,
                 halfmoveClock,
-                fullmoveNumber
+                fullmoveNumber,
+                computeZobristKey(
+                    whitePawns,
+                    whiteKnights,
+                    whiteBishops,
+                    whiteRooks,
+                    whiteQueens,
+                    whiteKing,
+                    blackPawns,
+                    blackKnights,
+                    blackBishops,
+                    blackRooks,
+                    blackQueens,
+                    blackKing,
+                    whiteToMove,
+                    whiteKingSideCastle,
+                    whiteQueenSideCastle,
+                    blackKingSideCastle,
+                    blackQueenSideCastle,
+                    enPassantSquare)
         );
     }
 
@@ -197,6 +239,10 @@ public final class Board {
         return fullmoveNumber;
     }
 
+    public long getZobristKey() {
+        return zobristKey;
+    }
+
     public boolean canWhiteKingSideCastle() {
         return whiteKingSideCastle;
     }
@@ -249,7 +295,29 @@ public final class Board {
             return true;
         }
 
-        return isAttackedBySlidingPieces(square, byAlliance, true) || isAttackedBySlidingPieces(square, byAlliance, false);
+        long occupancy = getAllPieces();
+        long bishopAttackers = byAlliance == Alliance.WHITE ? (whiteBishops | whiteQueens) : (blackBishops | blackQueens);
+        long rookAttackers = byAlliance == Alliance.WHITE ? (whiteRooks | whiteQueens) : (blackRooks | blackQueens);
+
+        long bishopCandidates = bishopAttackers;
+        while (bishopCandidates != 0L) {
+            int attackerSquare = Long.numberOfTrailingZeros(bishopCandidates);
+            bishopCandidates &= bishopCandidates - 1;
+            if (attacksSquareDiagonal(attackerSquare, square, occupancy)) {
+                return true;
+            }
+        }
+
+        long rookCandidates = rookAttackers;
+        while (rookCandidates != 0L) {
+            int attackerSquare = Long.numberOfTrailingZeros(rookCandidates);
+            rookCandidates &= rookCandidates - 1;
+            if (attacksSquareOrthogonal(attackerSquare, square, occupancy)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     public Board makeMove(Move move) {
@@ -258,42 +326,123 @@ public final class Board {
         return state.toBoard();
     }
 
-    private boolean isAttackedBySlidingPieces(int square, Alliance byAlliance, boolean bishopLike) {
-        long bishops = byAlliance == Alliance.WHITE ? whiteBishops : blackBishops;
-        long rooks = byAlliance == Alliance.WHITE ? whiteRooks : blackRooks;
-        long queens = byAlliance == Alliance.WHITE ? whiteQueens : blackQueens;
-        long occupancy = getAllPieces();
-
-        int[] directions = bishopLike ? new int[]{9, 7, -7, -9} : new int[]{8, -8, 1, -1};
-        for (int direction : directions) {
-            int current = square;
-            while (canStep(current, direction)) {
-                current += direction;
-                long currentBit = BoardConstants.bit(current);
-                if ((occupancy & currentBit) != 0L) {
-                    return bishopLike
-                            ? ((bishops & currentBit) != 0L || (queens & currentBit) != 0L)
-                            : ((rooks & currentBit) != 0L || (queens & currentBit) != 0L);
-                }
-            }
-        }
-        return false;
+    public Board undoMove(Board previousBoard) {
+        return previousBoard;
     }
 
-    private static boolean canStep(int currentSquare, int direction) {
-        int file = BoardConstants.fileOf(currentSquare);
-        int rank = BoardConstants.rankOf(currentSquare);
-        return switch (direction) {
-            case 8 -> rank < 7;
-            case -8 -> rank > 0;
-            case 1 -> file < 7;
-            case -1 -> file > 0;
-            case 9 -> file < 7 && rank < 7;
-            case 7 -> file > 0 && rank < 7;
-            case -7 -> file < 7 && rank > 0;
-            case -9 -> file > 0 && rank > 0;
-            default -> false;
-        };
+    private static long computeZobristKey(long whitePawns,
+                                          long whiteKnights,
+                                          long whiteBishops,
+                                          long whiteRooks,
+                                          long whiteQueens,
+                                          long whiteKing,
+                                          long blackPawns,
+                                          long blackKnights,
+                                          long blackBishops,
+                                          long blackRooks,
+                                          long blackQueens,
+                                          long blackKing,
+                                          boolean whiteToMove,
+                                          boolean whiteKingSideCastle,
+                                          boolean whiteQueenSideCastle,
+                                          boolean blackKingSideCastle,
+                                          boolean blackQueenSideCastle,
+                                          int enPassantSquare) {
+        long key = 0L;
+        key ^= piecesKey(whitePawns, Alliance.WHITE, PieceType.PAWN);
+        key ^= piecesKey(whiteKnights, Alliance.WHITE, PieceType.KNIGHT);
+        key ^= piecesKey(whiteBishops, Alliance.WHITE, PieceType.BISHOP);
+        key ^= piecesKey(whiteRooks, Alliance.WHITE, PieceType.ROOK);
+        key ^= piecesKey(whiteQueens, Alliance.WHITE, PieceType.QUEEN);
+        key ^= piecesKey(whiteKing, Alliance.WHITE, PieceType.KING);
+        key ^= piecesKey(blackPawns, Alliance.BLACK, PieceType.PAWN);
+        key ^= piecesKey(blackKnights, Alliance.BLACK, PieceType.KNIGHT);
+        key ^= piecesKey(blackBishops, Alliance.BLACK, PieceType.BISHOP);
+        key ^= piecesKey(blackRooks, Alliance.BLACK, PieceType.ROOK);
+        key ^= piecesKey(blackQueens, Alliance.BLACK, PieceType.QUEEN);
+        key ^= piecesKey(blackKing, Alliance.BLACK, PieceType.KING);
+        if (whiteToMove) {
+            key ^= Zobrist.sideToMoveKey();
+        }
+        if (whiteKingSideCastle) {
+            key ^= Zobrist.castlingKey(0);
+        }
+        if (whiteQueenSideCastle) {
+            key ^= Zobrist.castlingKey(1);
+        }
+        if (blackKingSideCastle) {
+            key ^= Zobrist.castlingKey(2);
+        }
+        if (blackQueenSideCastle) {
+            key ^= Zobrist.castlingKey(3);
+        }
+        if (enPassantSquare != -1) {
+            key ^= Zobrist.enPassantFileKey(BoardConstants.fileOf(enPassantSquare));
+        }
+        return key;
+    }
+
+    private static long piecesKey(long bitboard, Alliance alliance, PieceType pieceType) {
+        long key = 0L;
+        long pieces = bitboard;
+        while (pieces != 0L) {
+            int square = Long.numberOfTrailingZeros(pieces);
+            pieces &= pieces - 1;
+            key ^= Zobrist.pieceSquareKey(alliance, pieceType, square);
+        }
+        return key;
+    }
+
+    private static boolean attacksSquareDiagonal(int attackerSquare, int targetSquare, long occupancy) {
+        int attackerFile = BoardConstants.fileOf(attackerSquare);
+        int attackerRank = BoardConstants.rankOf(attackerSquare);
+        int targetFile = BoardConstants.fileOf(targetSquare);
+        int targetRank = BoardConstants.rankOf(targetSquare);
+
+        int fileDiff = targetFile - attackerFile;
+        int rankDiff = targetRank - attackerRank;
+        if (Math.abs(fileDiff) != Math.abs(rankDiff) || fileDiff == 0) {
+            return false;
+        }
+
+        int fileStep = Integer.compare(fileDiff, 0);
+        int rankStep = Integer.compare(rankDiff, 0);
+        int currentFile = attackerFile + fileStep;
+        int currentRank = attackerRank + rankStep;
+        while (currentFile != targetFile && currentRank != targetRank) {
+            int currentSquare = currentRank * 8 + currentFile;
+            if ((occupancy & BoardConstants.bit(currentSquare)) != 0L) {
+                return false;
+            }
+            currentFile += fileStep;
+            currentRank += rankStep;
+        }
+        return true;
+    }
+
+    private static boolean attacksSquareOrthogonal(int attackerSquare, int targetSquare, long occupancy) {
+        int attackerFile = BoardConstants.fileOf(attackerSquare);
+        int attackerRank = BoardConstants.rankOf(attackerSquare);
+        int targetFile = BoardConstants.fileOf(targetSquare);
+        int targetRank = BoardConstants.rankOf(targetSquare);
+
+        if (attackerFile != targetFile && attackerRank != targetRank) {
+            return false;
+        }
+
+        int fileStep = Integer.compare(targetFile, attackerFile);
+        int rankStep = Integer.compare(targetRank, attackerRank);
+        int currentFile = attackerFile + fileStep;
+        int currentRank = attackerRank + rankStep;
+        while (currentFile != targetFile || currentRank != targetRank) {
+            int currentSquare = currentRank * 8 + currentFile;
+            if ((occupancy & BoardConstants.bit(currentSquare)) != 0L) {
+                return false;
+            }
+            currentFile += fileStep;
+            currentRank += rankStep;
+        }
+        return true;
     }
 
     private static final class MutableState {
@@ -319,6 +468,7 @@ public final class Board {
         private int enPassantSquare;
         private int halfmoveClock;
         private int fullmoveNumber;
+        private long zobristKey;
 
         private MutableState(Board board) {
             this.whitePawns = board.whitePawns;
@@ -341,11 +491,17 @@ public final class Board {
             this.enPassantSquare = board.enPassantSquare;
             this.halfmoveClock = board.halfmoveClock;
             this.fullmoveNumber = board.fullmoveNumber;
+            this.zobristKey = board.zobristKey;
         }
 
         private void applyMove(Move move) {
             Alliance movingAlliance = whiteToMove ? Alliance.WHITE : Alliance.BLACK;
             Alliance opponentAlliance = movingAlliance.opposite();
+            boolean oldWhiteKingSideCastle = whiteKingSideCastle;
+            boolean oldWhiteQueenSideCastle = whiteQueenSideCastle;
+            boolean oldBlackKingSideCastle = blackKingSideCastle;
+            boolean oldBlackQueenSideCastle = blackQueenSideCastle;
+            int oldEnPassantSquare = enPassantSquare;
 
             long fromBit = BoardConstants.bit(move.getFromSquare());
             long toBit = BoardConstants.bit(move.getToSquare());
@@ -391,6 +547,28 @@ public final class Board {
                     ? (movingAlliance == Alliance.WHITE ? move.getFromSquare() + 8 : move.getFromSquare() - 8)
                     : -1;
 
+            if (oldEnPassantSquare != enPassantSquare) {
+                if (oldEnPassantSquare != -1) {
+                    zobristKey ^= Zobrist.enPassantFileKey(BoardConstants.fileOf(oldEnPassantSquare));
+                }
+                if (enPassantSquare != -1) {
+                    zobristKey ^= Zobrist.enPassantFileKey(BoardConstants.fileOf(enPassantSquare));
+                }
+            }
+
+            if (oldWhiteKingSideCastle != whiteKingSideCastle) {
+                zobristKey ^= Zobrist.castlingKey(0);
+            }
+            if (oldWhiteQueenSideCastle != whiteQueenSideCastle) {
+                zobristKey ^= Zobrist.castlingKey(1);
+            }
+            if (oldBlackKingSideCastle != blackKingSideCastle) {
+                zobristKey ^= Zobrist.castlingKey(2);
+            }
+            if (oldBlackQueenSideCastle != blackQueenSideCastle) {
+                zobristKey ^= Zobrist.castlingKey(3);
+            }
+
             if (move.getPieceType() == PieceType.PAWN || move.getCapturedPieceType() != null || move.getMoveType() == MoveType.EN_PASSANT) {
                 halfmoveClock = 0;
             } else {
@@ -402,6 +580,7 @@ public final class Board {
             }
 
             whiteToMove = !whiteToMove;
+            zobristKey ^= Zobrist.sideToMoveKey();
         }
 
         private void updateCastlingRights(Alliance movingAlliance, Move move) {
@@ -447,6 +626,8 @@ public final class Board {
         }
 
         private void removePiece(Alliance alliance, PieceType pieceType, long bit) {
+            int square = Long.numberOfTrailingZeros(bit);
+            zobristKey ^= Zobrist.pieceSquareKey(alliance, pieceType, square);
             if (alliance == Alliance.WHITE) {
                 switch (pieceType) {
                     case PAWN -> whitePawns &= ~bit;
@@ -469,6 +650,8 @@ public final class Board {
         }
 
         private void addPiece(Alliance alliance, PieceType pieceType, long bit) {
+            int square = Long.numberOfTrailingZeros(bit);
+            zobristKey ^= Zobrist.pieceSquareKey(alliance, pieceType, square);
             if (alliance == Alliance.WHITE) {
                 switch (pieceType) {
                     case PAWN -> whitePawns |= bit;
@@ -511,7 +694,8 @@ public final class Board {
                     blackQueenSideCastle,
                     enPassantSquare,
                     halfmoveClock,
-                    fullmoveNumber
+                    fullmoveNumber,
+                    zobristKey
             );
         }
     }
