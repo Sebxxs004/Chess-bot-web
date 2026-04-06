@@ -240,6 +240,11 @@
             font-weight: 700;
         }
 
+        .move-san.selected {
+            outline: 2px solid #3d7ea6;
+            outline-offset: 1px;
+        }
+
         .move-san.q-excellent {
             background: #dff5d8;
             color: #145739;
@@ -290,6 +295,12 @@
             flex-wrap: wrap;
         }
 
+        .coach-controls {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
         .nav-btn {
             border: 1px solid var(--border);
             background: #fff;
@@ -304,6 +315,31 @@
         .nav-btn:disabled {
             opacity: 0.5;
             cursor: not-allowed;
+        }
+
+        .coach-btn {
+            border: 1px solid var(--border);
+            background: #f7faf9;
+            color: #124d40;
+            border-radius: 8px;
+            height: 34px;
+            padding: 0 12px;
+            font-weight: 700;
+            cursor: pointer;
+        }
+
+        .coach-note {
+            margin: 0;
+            font-size: 0.85rem;
+            color: var(--muted);
+        }
+
+        .highlight-source {
+            box-shadow: inset 0 0 0 4px rgba(39, 96, 145, 0.45);
+        }
+
+        .highlight-target {
+            box-shadow: inset 0 0 0 4px rgba(174, 67, 67, 0.45);
         }
 
         @media (max-width: 900px) {
@@ -354,6 +390,10 @@
                 <button id="btn-next" class="nav-btn" title="Siguiente">&gt;</button>
                 <button id="btn-latest" class="nav-btn" title="Actual">&gt;&gt;</button>
             </div>
+            <div class="coach-controls">
+                <button id="btn-why-error" class="coach-btn" title="Mostrar linea de castigo de la jugada seleccionada">¿Por que es un error?</button>
+                <p id="coach-note" class="coach-note">Selecciona una jugada marcada para ver su linea de castigo.</p>
+            </div>
             <div id="log"></div>
         </div>
     </div>
@@ -370,6 +410,8 @@
     const btnPrev = document.getElementById("btn-prev");
     const btnNext = document.getElementById("btn-next");
     const btnLatest = document.getElementById("btn-latest");
+    const btnWhyError = document.getElementById("btn-why-error");
+    const coachNoteEl = document.getElementById("coach-note");
     const logEl = document.getElementById("log");
     let game;
     let board;
@@ -379,6 +421,7 @@
     let currentPgn = "";
     let lastWhiteEvalCp = 0;
     let pendingHumanReview = null;
+    let selectedHistoryPly = null;
 
     const protocol = window.location.protocol === "https:" ? "wss" : "ws";
     const socket = new WebSocket(`${protocol}://${window.location.host}/chess`);
@@ -413,6 +456,22 @@
 
     function updateBoard() {
         board.position(game.fen(), true);
+        clearPunishHighlights();
+    }
+
+    function clearPunishHighlights() {
+        $("#board .square-55d63").removeClass("highlight-source highlight-target");
+    }
+
+    function highlightMoveUci(uciMove) {
+        clearPunishHighlights();
+        if (!uciMove || uciMove.length < 4) {
+            return;
+        }
+        const from = uciMove.slice(0, 2);
+        const to = uciMove.slice(2, 4);
+        $("#board .square-" + from).addClass("highlight-source");
+        $("#board .square-" + to).addClass("highlight-target");
     }
 
     function toUci(move) {
@@ -468,6 +527,10 @@
 
             const whiteQualityClass = whiteMeta && whiteMeta.qualityClass ? whiteMeta.qualityClass : "";
             const blackQualityClass = blackMeta && blackMeta.qualityClass ? blackMeta.qualityClass : "";
+            const whiteSelected = selectedHistoryPly === whiteIndex ? "selected" : "";
+            const blackSelected = selectedHistoryPly === blackIndex ? "selected" : "";
+            const whiteTitle = whiteMeta && whiteMeta.advice ? `title="${whiteMeta.advice}"` : "";
+            const blackTitle = blackMeta && blackMeta.advice ? `title="${blackMeta.advice}"` : "";
             const whiteQualityTag = whiteMeta && whiteMeta.qualityLabel
                 ? `<span class="quality-tag ${whiteMeta.qualityClass}">${whiteMeta.qualityLabel}</span>`
                 : "";
@@ -478,8 +541,8 @@
             rows.push(
                 `<div class="history-row">` +
                 `<span class="move-num">${moveNumber}.</span>` +
-                `<span class="move-cell"><span class="move-san ${whiteCurrent} ${whiteQualityClass}">${white}</span>${whiteQualityTag}</span>` +
-                `<span class="move-cell"><span class="move-san ${blackCurrent} ${blackQualityClass}">${black}</span>${blackQualityTag}</span>` +
+                `<span class="move-cell"><span class="move-san ${whiteCurrent} ${whiteQualityClass} ${whiteSelected}" data-ply="${whiteIndex}" ${whiteTitle}>${white}</span>${whiteQualityTag}</span>` +
+                `<span class="move-cell"><span class="move-san ${blackCurrent} ${blackQualityClass} ${blackSelected}" data-ply="${blackIndex}" ${blackTitle}>${black}</span>${blackQualityTag}</span>` +
                 `</div>`
             );
         }
@@ -502,10 +565,14 @@
             uci: toUci(move),
             fen: game.fen(),
             qualityClass: "",
-            qualityLabel: ""
+            qualityLabel: "",
+            advice: "",
+            scoreDelta: 0,
+            punishmentPv: ""
         });
         currentPly = timeline.length;
         currentPgn = game.pgn();
+        selectedHistoryPly = currentPly - 1;
         updateHistoryPanel();
     }
 
@@ -664,7 +731,32 @@
         return { qualityClass: "", qualityLabel: "" };
     }
 
-    function applyPedagogicReview(postWhiteEvalCp) {
+    function getPedagogicalAdvice(move, scoreDelta) {
+        if (!move) {
+            return "";
+        }
+        const quality = classifyMoveQuality(scoreDelta);
+        if (quality.qualityClass === "q-blunder") {
+            return "!Cuidado! Este movimiento deja una pieza indefensa o permite un ataque directo al Rey.";
+        }
+        if (quality.qualityClass === "q-mistake") {
+            return "Has perdido el control de una casilla clave o has permitido que el oponente mejore su posicion.";
+        }
+        if (quality.qualityClass === "q-inaccuracy") {
+            return "Habia una opcion mas activa. Intenta presionar mas el centro.";
+        }
+        return "Buen intento. Compara la PV para encontrar una mejora concreta.";
+    }
+
+    function extractPvFromInfo(message) {
+        const pvIndex = message.indexOf(" pv ");
+        if (pvIndex < 0) {
+            return "";
+        }
+        return message.substring(pvIndex + 4).trim();
+    }
+
+    function applyPedagogicReview(postWhiteEvalCp, pvLine) {
         if (!pendingHumanReview) {
             return;
         }
@@ -675,19 +767,56 @@
         }
         const dropCp = pendingHumanReview.preEvalCp - postWhiteEvalCp;
         const verdict = classifyMoveQuality(dropCp);
+        const advice = getPedagogicalAdvice(timeline[index], dropCp);
         timeline[index].qualityClass = verdict.qualityClass;
         timeline[index].qualityLabel = verdict.qualityLabel;
+        timeline[index].advice = advice;
+        timeline[index].scoreDelta = dropCp;
+        timeline[index].punishmentPv = pvLine || timeline[index].punishmentPv || "";
         updateHistoryPanel();
         pendingHumanReview = null;
     }
 
     function renderPvFromInfo(message) {
-        const pvIndex = message.indexOf(" pv ");
-        if (pvIndex < 0) {
+        const pv = extractPvFromInfo(message);
+        pvTextEl.textContent = pv || "--";
+    }
+
+    function findProblematicMoveForCoach() {
+        if (selectedHistoryPly != null && selectedHistoryPly >= 0 && selectedHistoryPly < timeline.length) {
+            return selectedHistoryPly;
+        }
+        for (let i = timeline.length - 1; i >= 0; i--) {
+            if (timeline[i].qualityClass === "q-blunder" || timeline[i].qualityClass === "q-mistake") {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    function showPunishmentLine() {
+        const targetIndex = findProblematicMoveForCoach();
+        if (targetIndex < 0) {
+            coachNoteEl.textContent = "No hay errores graves seleccionados para analizar.";
+            clearPunishHighlights();
             return;
         }
-        const pv = message.substring(pvIndex + 4).trim();
-        pvTextEl.textContent = pv || "--";
+
+        const meta = timeline[targetIndex];
+        const pv = meta.punishmentPv || "";
+        const firstPvMove = pv.split(/\s+/).find(token => token.length >= 4);
+        if (!firstPvMove) {
+            coachNoteEl.textContent = "Aun no hay linea de castigo disponible para esa jugada.";
+            clearPunishHighlights();
+            return;
+        }
+
+        const targetPly = Math.min(targetIndex + 1, timeline.length);
+        navigateToPly(targetPly);
+        selectedHistoryPly = targetIndex;
+        updateHistoryPanel();
+        highlightMoveUci(firstPvMove);
+        coachNoteEl.textContent = `Linea de castigo: ${pv}`;
     }
 
     function initBoard() {
@@ -730,7 +859,7 @@
             const scoreData = renderScoreFromInfo(message);
             const whiteEvalCp = scoreToWhiteCp(scoreData);
             lastWhiteEvalCp = whiteEvalCp;
-            applyPedagogicReview(whiteEvalCp);
+            applyPedagogicReview(whiteEvalCp, extractPvFromInfo(message));
             renderPvFromInfo(message);
             return;
         }
@@ -760,6 +889,21 @@
     btnPrev.addEventListener("click", () => navigateToPly(currentPly - 1));
     btnNext.addEventListener("click", () => navigateToPly(currentPly + 1));
     btnLatest.addEventListener("click", () => navigateToPly(timeline.length));
+    btnWhyError.addEventListener("click", showPunishmentLine);
+
+    moveHistoryEl.addEventListener("click", event => {
+        const target = event.target.closest(".move-san");
+        if (!target) {
+            return;
+        }
+        const ply = Number(target.getAttribute("data-ply"));
+        if (!Number.isFinite(ply)) {
+            return;
+        }
+        selectedHistoryPly = ply;
+        updateHistoryPanel();
+        clearPunishHighlights();
+    });
 
     window.addEventListener("DOMContentLoaded", () => {
         initBoard();
