@@ -1,35 +1,180 @@
-# ♟️ Chess Tutor Engine - Proyecto de Entrenamiento Asistido
+# Chess Tutor Engine - Estado Actual del Sistema
 
-## 📖 Visión General
-Este proyecto no es solo un motor de ajedrez (Chess Engine); es un **Tutor de Ajedrez Interactivo**. El objetivo es construir un backend robusto que sea capaz de jugar, evaluar posiciones y, lo más importante, detectar errores humanos para generar retroalimentación en tiempo real y ejercicios de repetición espaciada.
+Aplicacion completa de entrenamiento de ajedrez con motor propio en Java, servidor WebSocket, UI de tutoria en tiempo real, contenedorizacion con Docker y despliegue en Azure Container Apps.
 
-## 🏗️ Arquitectura y Stack Tecnológico
-* **Lenguaje Core (Motor y Lógica):** Java (Orientado a objetos, fuertemente tipado, excelente manejo de memoria y concurrencia).
-* **Gestión de Proyecto:** Maven o Gradle.
-* **Paradigma de Diseño:** Clean Architecture (Separación estricta entre la lógica de generación de movimientos, el algoritmo de búsqueda y el módulo del tutor).
-* **Frontend / UI:** Interfaz web interactiva (HTML/CSS/JS o framework a definir) enfocada en una excelente UI/UX para el aprendizaje. Se comunicará con el backend en Java vía API REST o WebSockets.
-* **Base de Datos:** PostgreSQL/MySQL (Para guardar historial de usuarios, posiciones FEN de errores y progreso de Elo).
+## 1. Stack tecnologico
 
-## 🗺️ Fases de Desarrollo (Roadmap)
+- Lenguaje: Java 17.
+- Build y dependencias: Maven.
+- Servidor web: Javalin 6.3.0.
+- Logging: SLF4J Simple 2.0.16.
+- Testing: JUnit 5.11.0.
+- Frontend: HTML, CSS, JavaScript.
+- Librerias frontend: chessboard.js, chess.js, jQuery.
+- Contenedores: Docker (multi-stage build).
+- Cloud: Azure Container Registry + Azure Container Apps.
 
-### Fase 1: El Motor Central (Board & Move Generation)
-* Representación del tablero usando Bitboards (enteros de 64 bits).
-* Generador de movimientos legales completos (deslizantes, saltos, enroque, captura al paso, coronación).
-* **Testing Crítico:** Superar pruebas **PERFT** (Performance Test) para asegurar que el motor conoce el 100% de las reglas y genera el número exacto de nodos posibles por cada profundidad.
+## 2. Capacidades del motor
 
-### Fase 2: El Cerebro Analítico (Search & Evaluation)
-* Implementación de Minimax con Poda Alfa-Beta (Alpha-Beta Pruning).
-* Evaluación Heurística (Piece-Square Tables y valor de material).
-* Ordenamiento de movimientos (Move Ordering) para optimizar la poda.
-* **Testing Crítico:** Unit testing (JUnit) de la función de evaluación para asegurar que detecta jaques mates obvios y ganancias de material en 2-3 movimientos de profundidad.
+- Representacion del tablero con bitboards.
+- Generacion de movimientos legales completa.
+- Reglas especiales soportadas: enroque, captura al paso, promocion.
+- Soporte FEN completo: parseo y serializacion.
+- PERFT para validacion de legalidad y cobertura de reglas.
 
-### Fase 3: El Módulo Tutor (Business Logic)
-* **Limitación de Elo:** Adaptación del algoritmo para simular niveles humanos (limitando la profundidad o inyectando ruido en la evaluación).
-* **Detección de Blunders:** Lógica para comparar la jugada del usuario contra la mejor jugada del motor. Si la diferencia de puntaje excede el umbral "X", se marca como error grave.
-* **Generador de Puzzles:** Extracción de la posición (FEN) del blunder para la base de datos de entrenamiento.
-* **Testing Crítico:** Pruebas de integración simulando partidas pregrabadas para verificar que el sistema de alertas se dispara correctamente.
+## 3. Busqueda y evaluacion
 
-### Fase 4: La Interfaz de Entrenamiento (UI/UX)
-* Desarrollo del tablero interactivo.
-* Integración del "Semáforo de Jugadas" (Feedback visual por movimiento).
-* Modo "Castigo y Corrección" (Takebacks obligatorios en caso de error grave).
+- Negamax con poda alpha-beta.
+- Quiescence search.
+- Move ordering.
+- Transposition table con Zobrist hashing.
+- Iterative deepening.
+- Time management para go con depth y controles de tiempo.
+- Abortado de busqueda por comando stop.
+- Salida UCI de info depth, score cp/mate y pv.
+
+## 4. Protocolo UCI implementado
+
+- uci
+- isready
+- ucinewgame
+- position startpos moves ...
+- position fen ... moves ...
+- go (depth, wtime, btime, winc, binc, movetime)
+- stop
+- quit
+
+## 5. Capa web y comunicacion en tiempo real
+
+- El servidor expone archivos estaticos desde src/main/resources/public.
+- El canal WebSocket para juego y analisis es /chess.
+- La UI abre WebSocket dinamico segun protocolo:
+- wss cuando la pagina corre en https.
+- ws cuando la pagina corre en http.
+
+## 6. Funcionalidades de la UI de entrenamiento
+
+- Tablero interactivo con drag and drop.
+- Barra de evaluacion vertical con porcentajes para blancas y negras.
+- Historial de jugadas con navegacion: inicio, anterior, siguiente y actual.
+- Modo normal y modo ayuda.
+- Clasificacion pedagogica por jugada: Excelente, Inexactitud, Error y Blunder.
+- Ayuda contextual con explicacion y sugerencias de correccion.
+- Visualizacion de linea de castigo para jugadas marcadas.
+- Overlay de fin de partida.
+- Branding institucional activo:
+- Escudo UDES en esquina superior izquierda.
+- Escudo como favicon de la pestana.
+- Footer de autoria y derechos.
+
+## 7. Validaciones y pruebas implementadas
+
+- PERFT posicion inicial depth 1: 20.
+- PERFT posicion inicial depth 2: 400.
+- PERFT posicion inicial depth 3: 8902.
+- PERFT posicion inicial depth 4: 197281.
+- PERFT Kiwipete depth 3: 97862.
+- Validacion de promociones en escenario de finales.
+- Round-trip FEN validado.
+- Casos tacticos de search validados:
+- Deteccion de mate en 1.
+- Captura de dama colgante.
+
+## 8. Estructura principal del repositorio
+
+```text
+.
+|- pom.xml
+|- Dockerfile
+|- .dockerignore
+|- readme.md
+|- assets/
+|  `- escudo-udes.jpg
+`- src/
+   |- main/
+   |  |- java/com/chess/engine/
+   |  |  |- Main.java
+   |  |  |- ChessServer.java
+   |  |  |- UCI.java
+   |  |  |- board/
+   |  |  |- moves/
+   |  |  |- search/
+   |  |  `- debug/
+   |  `- resources/public/
+   |     |- index.html
+   |     `- assets/escudo-udes.jpg
+   `- test/java/com/chess/engine/
+      |- moves/PerftTest.java
+      `- search/SearchTest.java
+```
+
+## 9. Requisitos
+
+- JDK 17.
+- Maven 3.9 o superior.
+- Docker (opcional, para contenedores).
+- Azure CLI + extension containerapp (opcional, para despliegue cloud).
+
+## 10. Ejecutar en local
+
+Compilar:
+
+```powershell
+.\.tools\apache-maven-3.9.9\bin\mvn.cmd -q -DskipTests package
+```
+
+Probar:
+
+```powershell
+.\.tools\apache-maven-3.9.9\bin\mvn.cmd -q test
+```
+
+Levantar servidor:
+
+```powershell
+.\.tools\apache-maven-3.9.9\bin\mvn.cmd -q "org.codehaus.mojo:exec-maven-plugin:3.6.1:java" "-Dexec.mainClass=com.chess.engine.Main"
+```
+
+Endpoints locales:
+
+- Web: <http://localhost:7070>
+- WebSocket: ws://localhost:7070/chess
+
+Nota: el puerto puede configurarse con la variable de entorno PORT.
+
+## 11. Ejecutar con Docker
+
+Build de imagen:
+
+```powershell
+docker build -t chess-bot:latest .
+```
+
+Run local:
+
+```powershell
+docker run --rm -p 7070:7070 -e PORT=7070 chess-bot:latest
+```
+
+## 12. Actualizar despliegue en Azure Container Apps
+
+Build remoto en ACR:
+
+```powershell
+az acr build --registry <acr-name> --image chess-bot:latest .
+```
+
+Actualizar Container App:
+
+```powershell
+az containerapp update --name <app-name> --resource-group <resource-group> --image <acr-login-server>/chess-bot:latest
+```
+
+## 13. Estado actual del producto
+
+El sistema ya se encuentra en etapa funcional avanzada: motor validado, interfaz de entrenamiento operativa, feedback pedagogico en tiempo real y despliegue cloud activo.
+
+## 14. Creditos
+
+- Developed by JUAN SEBASTIAN CANO VASQUEZ
+- University of Santander
